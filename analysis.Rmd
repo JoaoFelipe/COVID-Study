@@ -1,0 +1,1484 @@
+---
+title: "In-Hospital Mortality and COVID-19 Vaccination in Immunocompromised Older Adults: A Contemporary Population-Based Analysis From Brazil"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    theme: united
+    toc_depth: 4
+---
+
+# Preparing data
+
+Load libraries:
+
+```{r}
+library(openxlsx)
+library(dplyr)
+library(lubridate)
+library(purrr)
+library(tidyr)
+library(prettyR)
+library(scales)
+library(DescTools)
+library(ggplot2)
+library(pROC)
+library(ResourceSelection)
+
+compareNA <- function(v1,v2) {
+    same <- (v1 == v2) | (is.na(v1) & is.na(v2))
+    same[is.na(same)] <- FALSE
+    return(same)
+}
+```
+
+Load SIVEP-Gripe data:
+
+```{r}
+df <- read.xlsx("SRAG 2024_DOWNLOAD 29_3_25 IMUNODEPRE_RT_PCR OU ANTIGENO POSITIVO.xlsx", detectDates = TRUE)
+```
+
+It has `r nrow(df)` patients before filtering.
+
+## Filtering population
+
+```{r}
+
+filtered <- df %>%
+  filter(
+    NOSOCOMIAL == 2,                         # Non-nosocomial
+    NU_IDADE_N >= 60,                        # 60 years old or older
+    IMUNODEPRE == 1,                         # Immunosuppressed
+    HOSPITAL == 1,                           # Hospitalized
+    !is.na(DT_INTERNA),                      # With hospitalization date
+    CLASSI_FIN == 5,                         # With COVID classification
+    PCR_SARS2 == 1 | AN_SARS2 == 1,          # With positive COVID test
+    EVOLUCAO %in% c(1, 2),                   # Survival or death (not other causes)
+    DT_EVOLUCA >= ymd("2023-12-31"),         # Start of epidemiological year
+    DT_EVOLUCA <= ymd("2024-12-28")          # End of epidemiological year
+  )
+```
+
+After the population filter, it had `r nrow(filtered)` patients.
+
+## Data cleaning and preparing
+
+### Days since the beginning of the infection
+
+```{r}
+# D: DIAS INICIO SIN HOSPITALIZAÇÃO
+filtered <- filtered %>%
+  mutate(delta_days = as.numeric(DT_INTERNA - DT_SIN_PRI))
+
+#stopifnot(all(compareNA(filtered$"DIAS.INICIO.SIN.HOSPITALIZA<U+00C7><U+00C3>O", filtered$delta_days)))
+```
+
+### Additional risk commorbidities
+
+```{r}
+# AR: COMORBIDADES ADICIONAIS
+filtered <- filtered %>%
+  mutate(additional_risk_comorbidities = 
+           as.integer(replace_na(CARDIOPATI, 0) == 1) + 
+           as.integer(replace_na(HEMATOLOGI, 0) == 1) + 
+           as.integer(replace_na(SIND_DOWN, 0) == 1) + 
+           as.integer(replace_na(HEPATICA, 0) == 1) + 
+           as.integer((replace_na(ASMA, 0) == 1) | (replace_na(PNEUMOPATI, 0) == 1)) + 
+           as.integer(replace_na(DIABETES, 0) == 1) + 
+           as.integer(replace_na(NEUROLOGIC, 0) == 1) + 
+           as.integer(replace_na(RENAL, 0) == 1) + 
+           as.integer(replace_na(OBESIDADE, 0) == 1))
+
+
+#stopifnot(all(compareNA(filtered$COMORBIDADES.ADICIONAIS, filtered$additional_risk_comorbidities)))
+```
+
+### Risk groups
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    risk_groups = case_when(
+      additional_risk_comorbidities >= 2 ~ '2+',
+      additional_risk_comorbidities == 1 ~ '1',
+      TRUE ~ 'None'
+    ),
+    at_least_one_risk = case_when(
+      additional_risk_comorbidities >= 1 ~ 1,
+      TRUE ~ 0
+    )
+  )
+```
+
+### Dates of valid vaccines
+
+Vaccines are valid when they have both the date of administration and the manufacturer.
+
+```{r}
+filtered <- filtered %>%
+  mutate(dose_dates = pmap(list(FAB_COV_1, DOSE_1_COV, 
+                               FAB_COV_2, DOSE_2_COV, 
+                               FAB_ADIC, DOSE_ADIC, 
+                               FAB_COVREF, DOSE_REF, 
+                               FAB_COVRF2, DOSE_2REF), 
+                           ~ {
+                             doses <- c(
+                               as.Date(ifelse(!is.na(..1), ..2, NA)),
+                               as.Date(ifelse(!is.na(..3), ..4, NA)),
+                               as.Date(ifelse(!is.na(..5), ..6, NA)),
+                               as.Date(ifelse(!is.na(..7), ..8, NA)),
+                               as.Date(ifelse(!is.na(..9), ..10, NA))
+                             )
+                             doses[!is.na(doses)]
+                           })
+  )
+```
+
+### Last vaccine year
+
+```{r}
+# Extract the last dose date (latest non-NA date in the list)
+filtered <- filtered %>%
+  mutate(last_date = map(dose_dates, ~ if (length(.x) == 0) NA else max(.x, na.rm = TRUE)))
+
+# Extract the year from the last_date
+filtered <- filtered %>%
+  mutate(last_year = map_dbl(last_date, ~ ifelse(is.na(.x), NA, year(.x))))
+
+# Compute the minimum non-NA year
+min_last_year <- min(filtered$last_year, na.rm = TRUE)
+
+# Compute year range starting from 1
+filtered <- filtered %>%
+  mutate(last_year_range = ifelse(is.na(last_year), NA, last_year - min_last_year + 1))
+
+#stopifnot(all(
+#  compareNA(filtered$"ANO.DA.<U+00DA>LTIMA.DOSE.VAC_COV;.2021=1;.2022=2;.2023=3;.2024=4", filtered$last_year_range)
+#))
+```
+
+### Number of doses
+
+```{r}
+# FF: N DOSES VAC_COV   (preenchendo em branco com 0)
+filtered <- filtered %>%
+  mutate(doses = map_int(dose_dates, length))
+
+#stopifnot(all(compareNA(replace_na(filtered$N.DOSES.VAC_COV, 0), filtered$doses)))
+```
+
+### Number of doses groups
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    dose_groups = case_when(
+      doses >= 3 ~ '3+',
+      doses == 2 ~ '2',
+      doses == 1 ~ '1',
+      TRUE ~ '0'
+    ),)
+```
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    dose_completion_groups = case_when(
+      doses >= 2 ~ '2+',
+      TRUE ~ '0-1'
+    ),)
+```
+
+### Types of vaccines
+
+Define groups and check if the definition is complete
+
+```{r}
+# Define vaccine groups
+innactivated_vaccines <- c(
+  '86 - COVID-19 SINOVAC/BUTANTAN - CORONAVAC',
+  'CORONAVAC',
+  'SINOVAC', 
+  'SINOVAC/BUTANTAN',
+  'SINOVAC/BUTANT', 
+  'INSTITUTO BUTANTAN'
+)
+
+viral_vector_vaccines <- c(
+  '85 - COVID-19 ASTRAZENECA/FIOCRUZ - COVISHIELD',
+  '89 - COVID-19 ASTRAZENECA - CHADOX1-S',
+  'ASTRAZENECA AB',
+  'ASTRAZENICA/FIOCRUZ',
+  'FABRICANTE FUNDACAO OSWALDO CRUZ',
+  '88 - COVID-19 JANSSEN - AD26.COV2.S',
+  'JANSSEN',
+  'JANSSEN PHARMACEUTICA NV'
+)
+
+mrna_vaccines <- c(
+  '87 - COVID-19 PFIZER - COMIRNATY',
+  'PFIZER',
+  'PFIZER MANUFACTURING BELGIUM NV - BELGICA',
+  'PFIZER/ BIVALENTE',
+  '103 - COVID-19 PFIZER - COMIRNATY BIVALENTE'
+)
+
+mapped_vaccines <- c(innactivated_vaccines, viral_vector_vaccines, mrna_vaccines, '<vazio>')
+
+# Now run assertions similar to Python
+stopifnot(
+  identical(setdiff(unique(replace_na(filtered$FAB_COV_1, '<vazio>')), mapped_vaccines), character(0))
+)
+stopifnot(
+  identical(setdiff(unique(replace_na(filtered$FAB_COV_2, '<vazio>')), mapped_vaccines), character(0))
+)
+stopifnot(
+  identical(setdiff(unique(replace_na(filtered$FAB_ADIC, '<vazio>')), mapped_vaccines), character(0))
+)
+stopifnot(
+  identical(setdiff(unique(replace_na(filtered$FAB_COVREF, '<vazio>')), mapped_vaccines), character(0))
+)
+stopifnot(
+  identical(setdiff(unique(replace_na(filtered$FAB_COVRF2, '<vazio>')), mapped_vaccines), character(0))
+)
+```
+
+Create columns with the count of each valid dose given the type.
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    innactivated_doses = pmap_int(
+      list(DOSE_1_COV, FAB_COV_1,
+           DOSE_2_COV, FAB_COV_2,
+           DOSE_ADIC, FAB_ADIC,
+           DOSE_REF, FAB_COVREF,
+           DOSE_2REF, FAB_COVRF2),
+      ~ sum(
+          (!is.na(..1) & ..2 %in% innactivated_vaccines),
+          (!is.na(..3) & ..4 %in% innactivated_vaccines),
+          (!is.na(..5) & ..6 %in% innactivated_vaccines),
+          (!is.na(..7) & ..8 %in% innactivated_vaccines),
+          (!is.na(..9) & ..10 %in% innactivated_vaccines)
+        )
+    ),
+    viral_vector_doses = pmap_int(
+      list(DOSE_1_COV, FAB_COV_1,
+           DOSE_2_COV, FAB_COV_2,
+           DOSE_ADIC, FAB_ADIC,
+           DOSE_REF, FAB_COVREF,
+           DOSE_2REF, FAB_COVRF2),
+      ~ sum(
+          (!is.na(..1) & ..2 %in% viral_vector_vaccines),
+          (!is.na(..3) & ..4 %in% viral_vector_vaccines),
+          (!is.na(..5) & ..6 %in% viral_vector_vaccines),
+          (!is.na(..7) & ..8 %in% viral_vector_vaccines),
+          (!is.na(..9) & ..10 %in% viral_vector_vaccines)
+        )
+    ),
+    mrna_doses = pmap_int(
+      list(DOSE_1_COV, FAB_COV_1,
+           DOSE_2_COV, FAB_COV_2,
+           DOSE_ADIC, FAB_ADIC,
+           DOSE_REF, FAB_COVREF,
+           DOSE_2REF, FAB_COVRF2),
+      ~ sum(
+          (!is.na(..1) & ..2 %in% mrna_vaccines),
+          (!is.na(..3) & ..4 %in% mrna_vaccines),
+          (!is.na(..5) & ..6 %in% mrna_vaccines),
+          (!is.na(..7) & ..8 %in% mrna_vaccines),
+          (!is.na(..9) & ..10 %in% mrna_vaccines)
+        )
+    )
+  )
+```
+
+### Vaccination schema
+
+inactivated=1; mRNA=2; viral vector=3; inactivated+ mRNA=4; inactivated + viral vector=5; mRNA+ viral vector=6; inactivated+ mRNA + viral vector=7.
+
+```{r}
+# FQ: Esquema vacinal: inativada=1; RNAm=2; vetor viral=3; inativada + RNAm=4; inativada + vetor viral=5; RNAm + vetor viral=6; inativada + RNAm + vetor viral=7
+dose_df <- filtered %>%
+  transmute(
+    i = innactivated_doses,
+    v = viral_vector_doses,
+    m = mrna_doses
+  )
+
+# Apply the logic row-wise
+vaccinal_schema <- pmap_int(dose_df, function(i, v, m) {
+  if (i > 0 & v > 0 & m > 0) {
+    7
+  } else if (v > 0 & m > 0) {
+    6
+  } else if (v > 0 & i > 0) {
+    5
+  } else if (m > 0 & i > 0) {
+    4
+  } else if (v > 0) {
+    3
+  } else if (m > 0) {
+    2
+  } else if (i > 0) {
+    1
+  } else {
+    0
+  }
+})
+
+# Attach it back to the `filtered` dataframe
+filtered <- filtered %>%
+  mutate(
+    vaccinal_schema = vaccinal_schema,
+    nominal_vaccinal_schema = recode(
+      vaccinal_schema, 
+      `0` = "None",
+      `1` = "Inactivated only",
+      `2` = "mRNA only",
+      `3` = "Viral vector only",
+      `4` = "Inactivated + mRNA",
+      `5` = "Inactivated + Viral vector",
+      `6` = "mRNA + viral vector",
+      `7` = "Inactivated + mRNA + viral vector"
+    ),
+    vaccinal_schema_count = recode(
+      vaccinal_schema, 
+      `0` = 0,
+      `1` = 1,
+      `2` = 1,
+      `3` = 1,
+      `4` = 2,
+      `5` = 2,
+      `6` = 2,
+      `7` = 3
+      )
+  )
+
+#stopifnot(all(
+#  compareNA(replace_na(filtered$`Esquema.vacinal:.inativada=1;.RNAm=2;.vetor.viral=3;.inativada.+.RNAm=4;.inativada.+.vetor.viral=5;.RNAm.+.vetor.viral=6;.inativada.+.RNAm.+.vetor.viral=7`, 0), vaccinal_schema)
+#))
+```
+
+Schema based on inactivated
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    vaccinal_schema_based_on_innactivated = pmap_chr(list(innactivated_doses, viral_vector_doses, mrna_doses), function(i, v, m) {
+      if (i + v + m <= 1) {
+        return('unvaccinated or single-dose')
+      } else if (v == 0 & m == 0) {
+        return('sequential with inactivated only')
+      } else if (i == 0) {
+        return('sequential excluding inactivated')
+      } else {
+        return('sequential with inactivated and others')
+      }
+    })
+  )
+```
+
+### Age groups
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    age_groups = case_when(
+      NU_IDADE_N >= 80 ~ '80+',
+      NU_IDADE_N >= 70 ~ '70-79',
+      TRUE ~ '60-69'
+    )
+  )
+```
+
+### Race groups
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    nominal_race = recode(
+      filtered$CS_RACA,
+      `1` = "White",
+      `2` = "Black",
+      `3` = "Yellow",
+      `4` = "Brown",
+      `5` = "Indigenous",
+      `9` = "Unknown"
+    )
+  )
+```
+
+### Educational groups
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    educational_attainment = case_when(
+      CS_ESCOL_N == 4 ~ 'bachelor',
+      CS_ESCOL_N < 4 ~ 'low',
+      TRUE ~ 'unknown'
+    )
+  )
+```
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    nominal_education = replace_na(recode(
+      filtered$CS_ESCOL_N,
+      `0` = "Elementary",
+      `1` = "Elementary",
+      `2` = "Middle",
+      `3` = "Highschool",
+      `4` = "Bachelors",
+      `5` = "Unknown",
+      `9` = "Unknown"
+    ), "Unknown")
+  )
+```
+
+### Dose groups
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    categorical_doses = case_when(
+      doses >= 4 ~ '4+',
+      doses == 3 ~ '3',
+      doses >= 1 ~ '1-2',
+      TRUE ~ 'unvaccinated'
+    )
+  )
+```
+
+### ICU admission
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    icu_admission = replace_na(recode(UTI, `1` = 1, `2` = 2, `9` = 2, .default = 2), 2),
+    nominal_icu_admission = replace_na(recode(UTI, `1` = "Yes", `2` = "No", `9` = "No", .default = "No"), "No")
+  )
+```
+
+### Invasive support ventilation
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    invasive_support_ven = replace_na(recode(SUPORT_VEN, `1` = 1, `3` = 2, `9` = 2, .default = 2), 2),
+    nominal_invasive_support_ven = replace_na(recode(SUPORT_VEN, `1` = "Yes", `3` = "No", `9` = "No", .default = "No"), "No")
+  )
+```
+
+### COVID treatment
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    covid_treatment = case_when(
+      ((TRAT_COV == 1) & !is.na(TIPO_TRAT)) ~ 1,
+      ((TRAT_COV > 1) & !is.na(TIPO_TRAT)) ~ 2,
+      TRUE ~ 2
+    ),
+    nominal_covid_treatment = replace_na(recode(covid_treatment, `1` = "Yes", `9` = "No", .default = "No"), "No")
+  )
+```
+
+### Split by outcome
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    nominal_outcome = recode(filtered$EVOLUCAO, `1` = "Survivor", `2` = "Non-survivor"),
+    outcome = ifelse(filtered$EVOLUCAO == 1, 1, 0)
+  )
+
+survivors <- filtered %>%
+  filter(EVOLUCAO == 1)
+nonsurvivors <- filtered %>%
+  filter(EVOLUCAO == 2)
+```
+
+## Create test spreadsheet
+
+```{r}
+test_dataframe <- filtered %>%
+  mutate(
+    `Outcome: Survivor = 1; Non-survivor = 2` = EVOLUCAO,
+    `Sex: female = 1; male = 2` = recode(CS_SEXO, `F` = 1, `M` = 2),
+    `ICU admission: yes = 1; no = 2` = icu_admission,
+    `Invasive ventilatory support: yes =1; no =2` = invasive_support_ven,
+    `Age group: 60-69 years = 1; 70-79 years =2; 80 years or older = 3` = recode(age_groups, `60-69` = 1, `70-79` = 2, `80+` = 3),
+    `Educational attainment: low (up to high school); high (Bachelor) = 2; unknown = 9` = recode(educational_attainment, `low` = 1, `bachelor` = 2, `unknown` = 9),
+    `Number of other risk conditions: none = 0; one or more = 1` = if_else(additional_risk_comorbidities >= 1, 1, 0),
+    `COVID-19 vaccine doses: Unvaccinated = 0; one to two doses = 1; 3 doses = 2; 4 or more doses = 3` = recode(categorical_doses, `unvaccinated` = 0, `1-2` = 1, `3` = 2, `4+` = 3),
+    ` ` = NA_real_, 
+    `Esquemas de vacinação: unvaccinated or single-dose (reference): 1; sequential with inactivated only: 2; sequential excluding inactivated: 3; sequential with inactivated and others: 4` = recode(vaccinal_schema_based_on_innactivated, 
+                                                                                                                                          `unvaccinated or single-dose` = 1,
+                                                                                                                                          `sequential with inactivated only` = 2,
+                                                                                                                                          `sequential excluding inactivated` = 3,
+                                                                                                                                          `sequential with inactivated and others` = 4)
+  ) %>%
+  select(
+    `Outcome: Survivor = 1; Non-survivor = 2`,
+    `Sex: female = 1; male = 2`,
+    `ICU admission: yes = 1; no = 2`,
+    `Invasive ventilatory support: yes =1; no =2`,
+    `Age group: 60-69 years = 1; 70-79 years =2; 80 years or older = 3`,
+    `Educational attainment: low (up to high school); high (Bachelor) = 2; unknown = 9`,
+    `Number of other risk conditions: none = 0; one or more = 1`,
+    `COVID-19 vaccine doses: Unvaccinated = 0; one to two doses = 1; 3 doses = 2; 4 or more doses = 3`,
+    ` `,
+    `Esquemas de vacinação: unvaccinated or single-dose (reference): 1; sequential with inactivated only: 2; sequential excluding inactivated: 3; sequential with inactivated and others: 4`
+  )
+```
+
+Create `test.xlsx` file
+
+```{r}
+write.xlsx(test_dataframe, "test.xlsx")
+```
+
+## Population characterization
+
+In total, `r nrow(filtered)` immunocompromised older adults hospitalized for COVID-19 in Brazil during the 2024 epidemiologic year were included in the analysis.
+
+### Age
+
+Median, min, max
+
+```{r}
+print(median(filtered$NU_IDADE_N))
+print(min(filtered$NU_IDADE_N))
+print(max(filtered$NU_IDADE_N))
+```
+
+### Sex
+
+```{r}
+describe.factor(filtered$CS_SEXO)
+```
+
+### Race
+
+```{r}
+describe.factor(filtered$nominal_race)
+```
+
+### Education
+
+```{r}
+describe.factor(filtered$educational_attainment)
+```
+
+Percentage without bachelor degree considering only the rows with known data:
+
+```{r}
+low <- nrow(filtered %>% filter(educational_attainment == "low"))
+bachelor <- nrow(filtered %>% filter(educational_attainment == "bachelor"))
+print(percent(low / (bachelor + low)))
+```
+
+### At least one risk condition
+
+```{r}
+describe.factor(filtered$at_least_one_risk)
+```
+
+### Vaccine doses
+
+```{r}
+describe.factor(filtered$dose_groups)
+```
+
+#### Inactivate
+
+```{r}
+describe.factor(filtered$innactivated_doses >= 1)
+```
+
+#### Viral-vector
+
+```{r}
+describe.factor(filtered$viral_vector_doses >= 1)
+```
+
+#### mRNA
+
+```{r}
+describe.factor(filtered$mrna_doses >= 1)
+```
+
+### Outcome
+
+```{r}
+table(filtered$nominal_outcome)
+```
+
+## Bivariate analysis
+
+### Total
+
+```{r}
+print(paste("Survivor:", nrow(survivors)))
+print(paste("Non-Survivor:", nrow(nonsurvivors)))
+```
+
+### Epidemiologic week of the onset of first symptoms
+
+#### Survivor
+
+```{r}
+print(paste("Median:", median(survivors$SEM_PRI)))
+print(paste("IQR:", IQR(survivors$SEM_PRI)))
+```
+
+Check normality (Shapiro-Wilk test):
+
+```{r}
+shapiro.test(survivors$SEM_PRI)
+```
+
+p-value \< 0.05 --\> Non-normal
+
+#### Non-Survivor:
+
+```{r}
+print(paste("Median:", median(nonsurvivors$SEM_PRI)))
+print(paste("IQR:", IQR(nonsurvivors$SEM_PRI)))
+```
+
+Check normality (Shapiro-Wilk test):
+
+```{r}
+shapiro.test(nonsurvivors$SEM_PRI)
+```
+
+p-value \< 0.05 --\> Non-normal
+
+#### Analysis (Mann-Whitney U test)
+
+```{r}
+wilcox.test(survivors$SEM_PRI, nonsurvivors$SEM_PRI)
+```
+
+### Days from onset of first symptoms
+
+#### Survivor
+
+```{r}
+print(paste("Median:", median(survivors$delta_days)))
+print(paste("IQR:", IQR(survivors$delta_days)))
+```
+
+Check normality (Shapiro-Wilk test):
+
+```{r}
+shapiro.test(survivors$delta_days)
+```
+
+p-value \< 0.05 --\> Non-normal
+
+#### Non-Survivor:
+
+```{r}
+print(paste("Median:", median(nonsurvivors$delta_days)))
+print(paste("IQR:", IQR(nonsurvivors$delta_days)))
+```
+
+Check normality (Shapiro-Wilk test):
+
+```{r}
+shapiro.test(nonsurvivors$delta_days)
+```
+
+p-value \< 0.05 --\> Non-normal
+
+#### Analysis (Mann-Whitney U test)
+
+```{r}
+wilcox.test(survivors$delta_days, nonsurvivors$delta_days)
+```
+
+### Age group, years, n
+
+#### Description
+
+```{r}
+table(filtered$age_groups, filtered$nominal_outcome)
+```
+
+#### Analysis
+
+```{r}
+chisq.test(filtered$age_groups, filtered$EVOLUCAO)
+```
+
+### Gender, n
+
+#### Description
+
+```{r}
+table(filtered$CS_SEXO, filtered$nominal_outcome)
+```
+
+#### Analysis
+
+```{r}
+chisq.test(filtered$CS_SEXO, filtered$EVOLUCAO)
+```
+
+### Race or Ethnicity, n
+
+#### Description
+
+```{r}
+table(filtered$nominal_race, filtered$nominal_outcome)
+```
+
+#### Analysis
+
+```{r}
+fisher.test(filtered$nominal_race, filtered$EVOLUCAO)
+```
+
+### Educational attainment, n
+
+#### Description
+
+```{r}
+table(filtered$nominal_education, filtered$nominal_outcome)
+```
+
+#### Analysis
+
+```{r}
+chisq.test(filtered$nominal_education, filtered$EVOLUCAO)
+```
+
+### Other underlying risk conditions, n
+
+#### Description
+
+```{r}
+table(filtered$risk_groups, filtered$nominal_outcome)
+```
+
+#### Analysis
+
+```{r}
+chisq.test(filtered$risk_groups, filtered$EVOLUCAO)
+```
+
+### Intensive care unit admission, n
+
+#### Description
+
+```{r}
+table(filtered$nominal_icu_admission, filtered$nominal_outcome)
+```
+
+#### Analysis
+
+```{r}
+chisq.test(filtered$nominal_icu_admission, filtered$EVOLUCAO)
+```
+
+### Invasive ventilatory support, n
+
+#### Description
+
+```{r}
+table(filtered$nominal_invasive_support_ven, filtered$nominal_outcome)
+```
+
+#### Analysis
+
+```{r}
+chisq.test(filtered$nominal_invasive_support_ven, filtered$EVOLUCAO)
+```
+
+### COVID-19 vaccine doses, n
+
+#### Description
+
+```{r}
+table(filtered$doses, filtered$nominal_outcome)
+```
+
+#### Analysis (Cochran-Armitage Test)
+
+```{r}
+CochranArmitageTest(table(filtered$nominal_outcome, filtered$doses), alternative="one.sided")
+```
+
+### COVID-19 vaccine types, n
+
+#### Description
+
+```{r}
+table(filtered$nominal_vaccinal_schema, filtered$nominal_outcome)
+```
+
+#### Analysis
+
+```{r}
+fisher.test(filtered$nominal_vaccinal_schema, filtered$nominal_outcome, workspace = 20000000)
+```
+
+### Year of last COVID-19 vaccine dose, n
+
+#### Description
+
+```{r}
+table(filtered$last_year, filtered$nominal_outcome)
+```
+
+#### Analysis
+
+```{r}
+fisher.test(filtered$last_year, filtered$nominal_outcome)
+```
+
+### COVID-19 specific treatment, n
+
+#### Description
+
+```{r}
+table(filtered$nominal_covid_treatment, filtered$nominal_outcome)
+```
+
+#### Analysis
+
+```{r}
+chisq.test(filtered$nominal_covid_treatment, filtered$nominal_outcome)
+```
+
+## Final multivariate logistic regression model
+
+```{r}
+filtered$outcome <- relevel(factor(filtered$outcome), ref="1")
+filtered$age_groups <- factor(filtered$age_groups)
+filtered$CS_SEXO <- factor(filtered$CS_SEXO)
+filtered$nominal_race <- relevel(factor(filtered$nominal_race), ref="White")
+filtered$nominal_icu_admission <- factor(filtered$nominal_icu_admission)
+filtered$nominal_invasive_support_ven <- factor(filtered$nominal_invasive_support_ven)
+filtered$educational_attainment <- relevel(factor(filtered$educational_attainment), ref="bachelor")
+filtered$nominal_education <- factor(filtered$nominal_education)
+filtered$at_least_one_risk <- factor(filtered$at_least_one_risk)
+filtered$risk_groups <- relevel(factor(filtered$risk_groups), ref="None")
+filtered$categorical_doses <- relevel(factor(filtered$categorical_doses), ref="unvaccinated")
+filtered$factor_doses <- relevel(factor(filtered$doses), ref=1)
+filtered$nominal_vaccinal_schema <- relevel(factor(filtered$nominal_vaccinal_schema), ref="None")
+filtered$nominal_covid_treatment <- relevel(factor(filtered$nominal_covid_treatment), ref="No")
+
+```
+
+### Main Version - Variables from paper
+
+Category: variable (Ref: value): groups...
+
+-   Age: covariate NU_IDADE_N
+-   Gender: CS_SEXO (Ref: F): M
+-   Educational Attainment: nominal_education (Ref: Bachelor): Elementary, Middle, Highschool, Unknown
+-   ICU: nominal_icu_admission (Ref: No): Yes
+-   Invasive Support Ven: nominal_invasive_support_ven (Ref: No): Yes
+-   Doses: categorical_doses (Ref: unvaccinated): 1-2, 3, 4+
+
+#### Logistic Regression
+
+```{r}
+model <- glm(outcome ~ NU_IDADE_N + CS_SEXO +
+               nominal_education +
+               nominal_icu_admission + 
+               nominal_invasive_support_ven + categorical_doses,
+               family = binomial,
+               data = filtered)
+
+summary_model <- summary(model)
+print(summary_model)
+```
+
+```{r}
+odds_ratios <- exp(coef(model))
+conf_int <- exp(confint(model))
+data.frame(
+  variable = names(coef(model)),
+  OR = round(odds_ratios, 2),
+  IC_95_inf = round(conf_int[,1], 2),
+  IC_95_sup = round(conf_int[,2], 2),
+  pvalue = round(summary_model$coefficients[,4], 3)
+)
+```
+
+#### Variance inflation factor
+
+```{r}
+vif_results <- car::vif(model)
+print(vif_results)
+```
+
+No multicollinearity detected.
+
+#### Forest Plot
+
+```{r}
+label_map <- c(
+  "NU_IDADE_N" = "Age",
+  "CS_SEXOM" = "Male",
+  "nominal_educationElementary" = "Elementary Education",
+  "nominal_educationHighschool" = "Highschool Education",
+  "nominal_educationMiddle" = "Middle Education",
+  "nominal_educationUnknown" = "Unknown Education",
+  "nominal_icu_admissionYes" = "ICU Admission",
+  "nominal_invasive_support_venYes" = "Invasive Ventilation",
+  "categorical_doses1-2" = "1-2 Doses",
+  "categorical_doses3" = "3 Doses",
+  "categorical_doses4+" = "4+ Doses"
+)
+
+
+coef_df <- as.data.frame(confint(model))  # 95% CI
+coef_df$Estimate <- coef(model)
+coef_df$OR <- exp(coef_df$Estimate)
+coef_df$LowerCI <- exp(coef_df[, 1])
+coef_df$UpperCI <- exp(coef_df[, 2])
+coef_df$Variable <- label_map[rownames(coef_df)]
+coef_df= coef_df[row.names(coef_df) != "nominal_educationUnknown",]
+
+ggplot(coef_df[-1, ], aes(x = reorder(Variable, OR), y = OR)) +  # remove Intercept
+  geom_point() +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI), width = 0.2) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  coord_flip() +
+  labs(title = "Forest Plot of Logistic Regression",
+       x = "Variables",
+       y = "Odds Ratio (95% CI)") +
+  theme_minimal()
+```
+
+#### Hosmer-Lemeshow Test
+
+```{r}
+hl_test <- hoslem.test(model$y, fitted(model), g = 10)
+print(hl_test)
+```
+
+p-value \> 0.05 -\> no evidence of poor fit
+
+#### ROC and AUC
+
+```{r}
+roc_obj <- roc(response = filtered$outcome,
+               predictor = predict(model, type = "response"))
+auc(roc_obj)
+ci.auc(roc_obj)
+```
+
+AUC between 0.7 and 0.8: acceptable ability to discriminate between classes Entire confidence interval above 0.5: model performs better than random
+
+```{r}
+plot(roc_obj, main = "ROC Curve")
+```
+
+## Alternative versions
+
+### Alternative A - Using groups from bivariate analyses
+
+Category: variable (Ref: <reference>): groups...
+
+-   Age: age_groups (Ref: 60--69): 70-79, 80+
+-   Gender: CS_SEXO (Ref: F): M
+-   Educational Attainment: nominal_education (Ref: Bachelor): Elementary, Middle, Highschool, Unknown
+-   ICU: nominal_icu_admission (Ref: No): Yes
+-   Invasive Support Ven: nominal_invasive_support_ven (Ref: No): Yes=
+-   Doses: factor_doses (Ref: 0): 1, 2, 3, 4, 5
+
+#### Logistic Regression
+
+```{r}
+model <- glm(outcome ~ age_groups + CS_SEXO +
+               nominal_education +
+               nominal_icu_admission + 
+               nominal_invasive_support_ven + factor_doses,
+               family = binomial,
+               data = filtered)
+
+summary_model <- summary(model)
+print(summary_model)
+```
+
+```{r}
+odds_ratios <- exp(coef(model))
+conf_int <- exp(confint(model))
+data.frame(
+  variable = names(coef(model)),
+  OR = round(odds_ratios, 2),
+  IC_95_inf = round(conf_int[,1], 2),
+  IC_95_sup = round(conf_int[,2], 2),
+  pvalue = round(summary_model$coefficients[,4], 3)
+)
+```
+
+#### Variance inflation factor
+
+```{r}
+vif_results <- car::vif(model)
+print(vif_results)
+```
+
+No multicollinearity detected.
+
+#### Forest Plot
+
+```{r}
+label_map <- c(
+  "age_groups70-79" = "Age 70-79",
+  "age_groups80+" = "Age 80+",
+  "CS_SEXOM" = "Male",
+  "nominal_educationElementary" = "Elementary Education",
+  "nominal_educationHighschool" = "Highschool Education",
+  "nominal_educationMiddle" = "Middle Education",
+  "nominal_educationUnknown" = "Unknown Education",
+  "nominal_icu_admissionYes" = "ICU Admission",
+  "nominal_invasive_support_venYes" = "Invasive Ventilation",
+  "factor_doses1" = "1 Dose",
+  "factor_doses2" = "2 Doses",
+  "factor_doses3" = "3 Doses",
+  "factor_doses4" = "4 Doses",
+  "factor_doses5" = "5 Doses"
+)
+
+
+coef_df <- as.data.frame(confint(model))  # 95% CI
+coef_df$Estimate <- coef(model)
+coef_df$OR <- exp(coef_df$Estimate)
+coef_df$LowerCI <- exp(coef_df[, 1])
+coef_df$UpperCI <- exp(coef_df[, 2])
+coef_df$Variable <- label_map[rownames(coef_df)]
+coef_df= coef_df[row.names(coef_df) != "nominal_educationUnknown",]
+
+ggplot(coef_df[-1, ], aes(x = reorder(Variable, OR), y = OR)) +  # remove Intercept
+  geom_point() +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI), width = 0.2) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  coord_flip() +
+  labs(title = "Forest Plot of Logistic Regression",
+       x = "Variables",
+       y = "Odds Ratio (95% CI)") +
+  theme_minimal()
+```
+
+#### Hosmer-Lemeshow Test
+
+```{r}
+hl_test <- hoslem.test(model$y, fitted(model), g = 10)
+print(hl_test)
+```
+
+p-value \> 0.05 -\> no evidence of poor fit
+
+#### ROC and AUC
+
+```{r}
+roc_obj <- roc(response = filtered$outcome,
+               predictor = predict(model, type = "response"))
+auc(roc_obj)
+ci.auc(roc_obj)
+```
+
+AUC between 0.7 and 0.8: acceptable ability to discriminate between classes Entire confidence interval above 0.5: model performs better than random
+
+```{r}
+plot(roc_obj, main = "ROC Curve")
+```
+
+### Alternative B - Alternative A, but age and doses are covariates
+
+Category: variable (Ref: <reference>): groups...
+
+-   Age: covariate NU_IDADE_N
+-   Gender: CS_SEXO (Ref: F): M
+-   Educational Attainment: nominal_education (Ref: Bachelor): Elementary, Middle, Highschool, Unknown
+-   ICU: nominal_icu_admission (Ref: No): Yes
+-   Invasive Support Ven: nominal_invasive_support_ven (Ref: No): Yes=
+-   Doses: covariate doses
+
+#### Logistic Regression
+
+```{r}
+model <- glm(outcome ~ NU_IDADE_N + CS_SEXO +
+               nominal_education +
+               nominal_icu_admission + 
+               nominal_invasive_support_ven + doses,
+               family = binomial,
+               data = filtered)
+
+summary_model <- summary(model)
+print(summary_model)
+```
+
+```{r}
+odds_ratios <- exp(coef(model))
+conf_int <- exp(confint(model))
+data.frame(
+  variable = names(coef(model)),
+  OR = round(odds_ratios, 2),
+  IC_95_inf = round(conf_int[,1], 2),
+  IC_95_sup = round(conf_int[,2], 2),
+  pvalue = round(summary_model$coefficients[,4], 3)
+)
+```
+
+#### Variance inflation factor
+
+```{r}
+vif_results <- car::vif(model)
+print(vif_results)
+```
+
+No multicollinearity detected.
+
+#### Forest Plot
+
+```{r}
+label_map <- c(
+  "NU_IDADE_N" = "Age",
+  "CS_SEXOM" = "Male",
+  "nominal_educationElementary" = "Elementary Education",
+  "nominal_educationHighschool" = "Highschool Education",
+  "nominal_educationMiddle" = "Middle Education",
+  "nominal_educationUnknown" = "Unknown Education",
+  "nominal_icu_admissionYes" = "ICU Admission",
+  "nominal_invasive_support_venYes" = "Invasive Ventilation",
+  "doses" = "Doses"
+)
+
+
+coef_df <- as.data.frame(confint(model))  # 95% CI
+coef_df$Estimate <- coef(model)
+coef_df$OR <- exp(coef_df$Estimate)
+coef_df$LowerCI <- exp(coef_df[, 1])
+coef_df$UpperCI <- exp(coef_df[, 2])
+coef_df$Variable <- label_map[rownames(coef_df)]
+coef_df= coef_df[row.names(coef_df) != "nominal_educationUnknown",]
+
+ggplot(coef_df[-1, ], aes(x = reorder(Variable, OR), y = OR)) +  # remove Intercept
+  geom_point() +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI), width = 0.2) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  coord_flip() +
+  labs(title = "Forest Plot of Logistic Regression",
+       x = "Variables",
+       y = "Odds Ratio (95% CI)") +
+  theme_minimal()
+```
+
+#### Hosmer-Lemeshow Test
+
+```{r}
+hl_test <- hoslem.test(model$y, fitted(model), g = 10)
+print(hl_test)
+```
+
+p-value \> 0.05 -\> no evidence of poor fit
+
+#### ROC and AUC
+
+```{r}
+roc_obj <- roc(response = filtered$outcome,
+               predictor = predict(model, type = "response"))
+auc(roc_obj)
+ci.auc(roc_obj)
+```
+
+AUC between 0.7 and 0.8: acceptable ability to discriminate between classes Entire confidence interval above 0.5: model performs better than random
+
+```{r}
+plot(roc_obj, main = "ROC Curve")
+```
+
+### Alternative C - Alternative B, but it includes all categories from bivariate analyses
+
+Category: variable (Ref: <reference>): groups...
+
+-   Days from onset of first symtoms to hospitalization: covariate delta_days
+-   Age: covariate NU_IDADE_N
+-   Gender: CS_SEXO (Ref: F): M
+-   Race: nominal_race (Ref: White): Brown, Black, Yellow, Unknown
+-   Educational Attainment: nominal_education (Ref: Bachelor): Elementary, Middle, Highschool, Unknown
+-   Risk conditions: covariate additional_risk_comorbidities
+-   ICU: nominal_icu_admission (Ref: No): Yes
+-   Invasive Support Ven: nominal_invasive_support_ven (Ref: No): Yes
+-   Doses: covariate doses
+-   Vaccinal schema: nominal_vaccinal_schema (Ref: None): Inactivated only, mRNA only, Viral vector only, Inactivated + mRNA, Inactivate + viral vector, mRNA + viral vector, Inactivated + mRNA + viral vector
+-   Year of last COVID-19 vaccine: covariate last_year
+-   COVID treatment: nominal_covid_treatment (Ref: No): Yes
+
+#### Logistic Regression
+
+```{r}
+
+filtered$nominal_vaccinal_schema <- factor(
+  filtered$nominal_vaccinal_schema,
+  levels = levels(filtered$nominal_vaccinal_schema)
+)
+
+model <- glm(outcome ~ delta_days + NU_IDADE_N + CS_SEXO +
+               nominal_race +
+               nominal_education +
+               additional_risk_comorbidities +
+               nominal_icu_admission + 
+               nominal_invasive_support_ven +
+               doses +
+               nominal_vaccinal_schema +
+               last_year +
+               nominal_covid_treatment,
+               family = binomial,
+               data = filtered)
+
+summary_model <- summary(model)
+print(summary_model)
+```
+
+```{r}
+odds_ratios <- exp(coef(model))
+conf_int <- exp(confint(model))
+data.frame(
+  variable = names(coef(model)),
+  OR = round(odds_ratios, 2),
+  IC_95_inf = round(conf_int[,1], 2),
+  IC_95_sup = round(conf_int[,2], 2),
+  pvalue = round(summary_model$coefficients[,4], 3)
+)
+```
+
+#### Variance inflation factor
+
+```{r}
+vif_results <- car::vif(model)
+print(vif_results)
+```
+
+Doses and vaccinal schema might have some colinearity.
+
+#### Forest Plot
+
+```{r}
+label_map <- c(
+  "NU_IDADE_N" = "Age",
+  "CS_SEXOM" = "Male",
+  "nominal_educationElementary" = "Elementary Education",
+  "nominal_educationHighschool" = "Highschool Education",
+  "nominal_educationMiddle" = "Middle Education",
+  "nominal_educationUnknown" = "Unknown Education",
+  "nominal_icu_admissionYes" = "ICU Admission",
+  "nominal_invasive_support_venYes" = "Invasive Ventilation",
+  "additional_risk_comorbidities" = "Comorbidities",
+  "doses" = "Doses",
+  "nominal_vaccinal_schemaInactivated + mRNA + viral vector" = "Inactivated + mRNA + viral vector",
+  "nominal_vaccinal_schemaInactivated + Viral vector" = "Inactivated + Viral vector",
+  "nominal_vaccinal_schemaInactivated only" = "Inactivated only",
+  "nominal_vaccinal_schemaViral vector only" = "Viral vector only",
+  "last_year" = "Last Vaccine Year",
+  "nominal_covid_treatmentYes" = "COVID Treatment",
+  "nominal_raceBlack" = "Black",
+  "nominal_raceBrown" = "Brown",
+  "nominal_raceUnknown" = "Unknown Race",
+  "nominal_raceYellow" = "Yellow",
+  "delta_days" = "Days since the beginning of the infection",
+  "nominal_vaccinal_schemamRNA + viral vector" = "mRNA + viral vector",
+  "nominal_vaccinal_schemamRNA only" = "mRNA only"
+)
+
+coef_df <- as.data.frame(confint(model))  # 95% CI
+coef_df$Estimate <- coef(model)
+coef_df$OR <- exp(coef_df$Estimate)
+coef_df$LowerCI <- exp(coef_df[, 1])
+coef_df$UpperCI <- exp(coef_df[, 2])
+#coef_df$Variable <- rownames(coef_df)
+
+coef_df$Variable <- label_map[rownames(coef_df)]
+coef_df= coef_df[row.names(coef_df) != "nominal_educationUnknown" & row.names(coef_df) != "nominal_raceUnknown" ,]
+
+ggplot(coef_df[-1, ], aes(x = reorder(Variable, OR), y = OR)) +  # remove Intercept
+  geom_point() +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI), width = 0.2) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  coord_flip() +
+  labs(title = "Forest Plot of Logistic Regression",
+       x = "Variables",
+       y = "Odds Ratio (95% CI)") +
+  theme_minimal()
+```
+
+#### Hosmer-Lemeshow Test
+
+```{r}
+hl_test <- hoslem.test(model$y, fitted(model), g = 10)
+print(hl_test)
+```
+
+p-value \> 0.05 -\> no evidence of poor fit
+
+### Alternative D - Alternative B, but doses and are are categorical
+
+Category: variable (Ref: <reference>): groups...
+
+-   Age: age_groups (Ref: 60--69): 70-79, 80+
+-   ICU: nominal_icu_admission (Ref: No): Yes
+-   Invasive Support Ven: nominal_invasive_support_ven (Ref: No): Yes
+-   Gender: CS_SEXO (Ref: F): M
+-   Doses: categorical_doses (Ref: unvaccinated): 1-2, 3, 4+
+-   Educational Attainment: educational_attainment (Ref: bachelor): low, unknown
+
+#### Logistic Regression
+
+```{r}
+model <- glm(outcome ~ age_groups + nominal_icu_admission + 
+               nominal_invasive_support_ven + CS_SEXO +
+               categorical_doses + 
+               educational_attainment,
+               family = binomial,
+               data = filtered)
+
+summary_model <- summary(model)
+print(summary_model)
+```
+
+```{r}
+odds_ratios <- exp(coef(model))
+conf_int <- exp(confint(model))
+data.frame(
+  variable = names(coef(model)),
+  OR = round(odds_ratios, 2),
+  IC_95_inf = round(conf_int[,1], 2),
+  IC_95_sup = round(conf_int[,2], 2),
+  pvalue = round(summary_model$coefficients[,4], 3)
+)
+```
+
+#### Variance inflation factor
+
+```{r}
+vif_results <- car::vif(model)
+print(vif_results)
+```
+
+No multicollinearity detected.
+
+#### Forest Plot
+
+```{r}
+label_map <- c(
+  "age_groups70-79" = "Age 70-79",
+  "age_groups80+" = "Age 80+",
+  "CS_SEXOM" = "Male",
+  "educational_attainmentlow" = "Low Education",
+  "educational_attainmentunknown" = "Unknown Education",
+  "nominal_educationMiddle" = "Middle Education",
+  "nominal_educationUnknown" = "Unknown Education",
+  "nominal_icu_admissionYes" = "ICU Admission",
+  "nominal_invasive_support_venYes" = "Invasive Ventilation",
+  "categorical_doses1-2" = "1-2 Doses",
+  "categorical_doses3" = "3 Doses",
+  "categorical_doses4+" = "4+ Doses"
+)
+
+
+coef_df <- as.data.frame(confint(model))  # 95% CI
+coef_df$Estimate <- coef(model)
+coef_df$OR <- exp(coef_df$Estimate)
+coef_df$LowerCI <- exp(coef_df[, 1])
+coef_df$UpperCI <- exp(coef_df[, 2])
+coef_df$Variable <- label_map[rownames(coef_df)]
+coef_df= coef_df[row.names(coef_df) != "educational_attainmentunknown",]
+
+ggplot(coef_df[-1, ], aes(x = reorder(Variable, OR), y = OR)) +  # remove Intercept
+  geom_point() +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI), width = 0.2) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  coord_flip() +
+  labs(title = "Forest Plot of Logistic Regression",
+       x = "Variables",
+       y = "Odds Ratio (95% CI)") +
+  theme_minimal()
+```
+
+#### Hosmer-Lemeshow Test
+
+```{r}
+hl_test <- hoslem.test(model$y, fitted(model), g = 10)
+print(hl_test)
+```
+
+p-value \> 0.05 -\> no evidence of poor fit
+
+#### ROC and AUC
+
+```{r}
+roc_obj <- roc(response = filtered$outcome,
+               predictor = predict(model, type = "response"))
+auc(roc_obj)
+ci.auc(roc_obj)
+```
+
+AUC between 0.7 and 0.8: acceptable ability to discriminate between classes Entire confidence interval above 0.5: model performs better than random
+
+```{r}
+plot(roc_obj, main = "ROC Curve")
+```
+
+## Vaccination schema
+
+```{r}
+filtered$vaccinal_schema_based_on_innactivated <- relevel(factor(filtered$vaccinal_schema_based_on_innactivated), ref="unvaccinated or single-dose")
+model <- glm(outcome ~ vaccinal_schema_based_on_innactivated,
+               family = binomial,
+               data = filtered)
+
+summary_model <- summary(model)
+print(summary_model)
+```
+
+```{r}
+filtered$nominal_vaccinal_schema <- relevel(factor(filtered$nominal_vaccinal_schema), ref="None")
+model <- glm(outcome ~ nominal_vaccinal_schema,
+               family = binomial,
+               data = filtered)
+
+summary_model <- summary(model)
+print(summary_model)
+```
+
+```{r}
+
+filtered$factor_innactivated_doses <- relevel(factor(filtered$innactivated_doses), ref=1)
+filtered$factor_viral_vector_doses<- relevel(factor(filtered$viral_vector_doses ), ref=1)
+filtered$factor_mrna_doses <- relevel(factor(filtered$mrna_doses), ref=1)
+filtered$nominal_vaccinal_schema <- relevel(factor(filtered$nominal_vaccinal_schema), ref="None")
+model <- glm(outcome ~ factor_innactivated_doses + factor_viral_vector_doses + factor_mrna_doses,
+               family = binomial,
+               data = filtered)
+
+summary_model <- summary(model)
+print(summary_model)
+
+```
+
+```{r}
+
+filtered$received_innactivated_doses <- relevel(factor(filtered$innactivated_doses >= 1), ref=1)
+filtered$received_viral_vector_doses<- relevel(factor(filtered$viral_vector_doses >= 1), ref=1)
+filtered$received_mrna_doses <- relevel(factor(filtered$mrna_doses >= 1), ref=1)
+
+model <- glm(outcome ~ received_innactivated_doses + received_viral_vector_doses + received_mrna_doses,
+               family = binomial,
+               data = filtered)
+
+summary_model <- summary(model)
+print(summary_model)
+
+```
