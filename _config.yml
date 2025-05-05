@@ -1,0 +1,5 @@
+title: Study Repository
+description: In-Hospital Mortality and COVID-19 Vaccination in Immunocompromised Older Adults: A Contemporary Population-Based Analysis From Brazil
+remote_theme: pages-themes/slate@v0.2.0
+plugins:
+- jekyll-remote-theme
