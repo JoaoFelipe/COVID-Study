@@ -1,5 +1,5 @@
 ---
-title: "In-Hospital Mortality and COVID-19 Vaccination in Immunocompromised Older Adults: A Contemporary Population-Based Analysis From Brazil"
+title: "Association Between COVID-19 Vaccination and Mortality in Immunocompromised Older Adults: A Population-Based Analysis"
 output:
   html_document:
     df_print: paged
@@ -763,13 +763,13 @@ chisq.test(filtered$nominal_education, filtered$EVOLUCAO)
 #### Description
 
 ```{r}
-table(filtered$risk_groups, filtered$nominal_outcome)
+table(filtered$at_least_one_risk, filtered$nominal_outcome)
 ```
 
 #### Analysis
 
 ```{r}
-chisq.test(filtered$risk_groups, filtered$EVOLUCAO)
+fisher.test(filtered$at_least_one_risk, filtered$EVOLUCAO)
 ```
 
 ### Intensive care unit admission, n
@@ -887,7 +887,7 @@ Category: variable (Ref: value): groups...
 -   Invasive Support Ven: nominal_invasive_support_ven (Ref: No): Yes
 -   Doses: categorical_doses (Ref: unvaccinated): 1-2, 3, 4+
 
-#### Logistic Regression
+#### Logistic Regression"
 
 ```{r}
 model <- glm(outcome ~ NU_IDADE_N + CS_SEXO +

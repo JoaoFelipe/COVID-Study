@@ -1,6 +1,6 @@
 # Study Repository 
 
-This repository contains the data and statistical analyses of the study **In-Hospital Mortality and COVID-19 Vaccination in Immunocompromised Older Adults: A Contemporary Population-Based Analysis From Brazil**.
+This repository contains the data and statistical analyses of the study **Association Between COVID-19 Vaccination and Mortality in Immunocompromised Older Adults: A Population-Based Analysis**.
 
 Check the results at [analysis.html](analysis.html).
 

@@ -11,7 +11,7 @@
 
 
 
-<title>In-Hospital Mortality and COVID-19 Vaccination in Immunocompromised Older Adults: A Contemporary Population-Based Analysis From Brazil</title>
+<title>Association Between COVID-19 Vaccination and Mortality in Immunocompromised Older Adults: A Population-Based Analysis</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -1625,9 +1625,9 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">In-Hospital Mortality and COVID-19
-Vaccination in Immunocompromised Older Adults: A Contemporary
-Population-Based Analysis From Brazil</h1>
+<h1 class="title toc-ignore">Association Between COVID-19 Vaccination
+and Mortality in Immunocompromised Older Adults: A Population-Based
+Analysis</h1>
 
 </div>
 
@@ -1773,7 +1773,7 @@ logistic regression model</a>
 from paper</a>
 <ul>
 <li><a href="#logistic-regression" id="toc-logistic-regression">Logistic
-Regression</a></li>
+Regression”</a></li>
 <li><a href="#variance-inflation-factor" id="toc-variance-inflation-factor">Variance inflation factor</a></li>
 <li><a href="#forest-plot" id="toc-forest-plot">Forest Plot</a></li>
 <li><a href="#hosmer-lemeshow-test" id="toc-hosmer-lemeshow-test">Hosmer-Lemeshow Test</a></li>
@@ -2600,21 +2600,26 @@ print(percent(low / (bachelor + low)))</code></pre>
 <h3>Other underlying risk conditions, n</h3>
 <div id="description-4" class="section level4">
 <h4>Description</h4>
-<pre class="r"><code>table(filtered$risk_groups, filtered$nominal_outcome)</code></pre>
-<pre><code>##       
-##        Non-survivor Survivor
-##   1              53      106
-##   2+             54      101
-##   None           64       96</code></pre>
+<pre class="r"><code>table(filtered$at_least_one_risk, filtered$nominal_outcome)</code></pre>
+<pre><code>##    
+##     Non-survivor Survivor
+##   0           64       96
+##   1          107      207</code></pre>
 </div>
 <div id="analysis-4" class="section level4">
 <h4>Analysis</h4>
-<pre class="r"><code>chisq.test(filtered$risk_groups, filtered$EVOLUCAO)</code></pre>
+<pre class="r"><code>fisher.test(filtered$at_least_one_risk, filtered$EVOLUCAO)</code></pre>
 <pre><code>## 
-##  Pearson&#39;s Chi-squared test
+##  Fisher&#39;s Exact Test for Count Data
 ## 
-## data:  filtered$risk_groups and filtered$EVOLUCAO
-## X-squared = 1.6898, df = 2, p-value = 0.4296</code></pre>
+## data:  filtered$at_least_one_risk and filtered$EVOLUCAO
+## p-value = 0.2252
+## alternative hypothesis: true odds ratio is not equal to 1
+## 95 percent confidence interval:
+##  0.5141053 1.1730442
+## sample estimates:
+## odds ratio 
+##  0.7757992</code></pre>
 </div>
 </div>
 <div id="intensive-care-unit-admission-n" class="section level3">
@@ -2782,7 +2787,7 @@ Yes</li>
 <li>Doses: categorical_doses (Ref: unvaccinated): 1-2, 3, 4+</li>
 </ul>
 <div id="logistic-regression" class="section level4">
-<h4>Logistic Regression</h4>
+<h4>Logistic Regression”</h4>
 <pre class="r"><code>model &lt;- glm(outcome ~ NU_IDADE_N + CS_SEXO +
                nominal_education +
                nominal_icu_admission + 
