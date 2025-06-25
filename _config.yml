@@ -1,5 +1,5 @@
 title: Study Repository
-description: "Association Between COVID-19 Vaccination and Mortality in Immunocompromised Older Adults: A Population-Based Analysis"
+description: "COVID-19 Vaccination and In-Hospital Mortality Among Immunocompromised Older Adults: A Population-Based Study From Brazil, 2024"
 remote_theme: pages-themes/slate@v0.2.0
 plugins:
 - jekyll-remote-theme

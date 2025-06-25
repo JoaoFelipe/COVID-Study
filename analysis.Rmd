@@ -1,5 +1,5 @@
 ---
-title: "Association Between COVID-19 Vaccination and Mortality in Immunocompromised Older Adults: A Population-Based Analysis"
+title: "COVID-19 Vaccination and In-Hospital Mortality Among Immunocompromised Older Adults: A Population-Based Study From Brazil, 2024"
 output:
   html_document:
     df_print: paged
@@ -887,7 +887,7 @@ Category: variable (Ref: value): groups...
 -   Invasive Support Ven: nominal_invasive_support_ven (Ref: No): Yes
 -   Doses: categorical_doses (Ref: unvaccinated): 1-2, 3, 4+
 
-#### Logistic Regression"
+#### Logistic Regression
 
 ```{r}
 model <- glm(outcome ~ NU_IDADE_N + CS_SEXO +
