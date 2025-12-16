@@ -134,13 +134,32 @@ filtered <- filtered %>%
   )
 ```
 
-### Last vaccine year
+### Last vaccine date
 
 ```{r}
 # Extract the last dose date (latest non-NA date in the list)
 filtered <- filtered %>%
   mutate(last_date = map(dose_dates, ~ if (length(.x) == 0) NA else max(.x, na.rm = TRUE)))
+```
 
+### Days betwwn vaccine date and internation
+
+```{r}
+# Calculate the number of days betwenn the vaccine date and internation
+filtered <- filtered %>%
+  mutate(days_since_last_vaccine = if_else(
+      (length(last_date) == 0 || all(is.na(last_date))) | is.na(DT_INTERNA),
+      NA,
+      as.numeric(as.Date(DT_INTERNA, format = "%Y-%m-%d") - as.Date(map_dbl(filtered$last_date, 1)))
+    ))
+           
+        #   as.numeric( - ))
+```
+
+
+### Last vaccine year
+
+```{r}
 # Extract the year from the last_date
 filtered <- filtered %>%
   mutate(last_year = map_dbl(last_date, ~ ifelse(is.na(.x), NA, year(.x))))
@@ -438,6 +457,22 @@ filtered <- filtered %>%
   )
 ```
 
+```{r}
+filtered <- filtered %>%
+  mutate(
+    education_level = replace_na(recode(
+      filtered$CS_ESCOL_N,
+      `0` = "Elementary", # Elementary
+      `1` = "Elementary", # Elementary
+      `2` = "Middle", # Middle
+      `3` = "High", # Highschool
+      `4` = "High", # Bachelors
+      `5` = "Unknown",
+      `9` = "Unknown"
+    ), "Unknown")
+  )
+```
+
 ### Dose groups
 
 ```{r}
@@ -663,6 +698,22 @@ p-value \< 0.05 --\> Non-normal
 ```{r}
 wilcox.test(survivors$SEM_PRI, nonsurvivors$SEM_PRI)
 ```
+#### Raw Odds Ratio
+
+```{r}
+m_raw <- glm(outcome ~ SEM_PRI,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
+```
+
 
 ### Days from onset of first symptoms
 
@@ -701,6 +752,22 @@ p-value \< 0.05 --\> Non-normal
 ```{r}
 wilcox.test(survivors$delta_days, nonsurvivors$delta_days)
 ```
+#### Raw Odds Ratio
+
+```{r}
+m_raw <- glm(outcome ~ delta_days,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
+```
+
 
 ### Age group, years, n
 
@@ -714,6 +781,39 @@ table(filtered$age_groups, filtered$nominal_outcome)
 
 ```{r}
 chisq.test(filtered$age_groups, filtered$EVOLUCAO)
+```
+#### Raw Odds Ratio
+
+```{r}
+filtered$age_groups <- relevel(factor(filtered$age_groups), ref = "60-69")
+
+m_raw <- glm(outcome ~ age_groups,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
+```
+
+```{r}
+filtered$age_groups <- relevel(factor(filtered$age_groups), ref = "60-69")
+
+m_raw <- glm(outcome ~ NU_IDADE_N,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
 ```
 
 ### Gender, n
@@ -729,6 +829,24 @@ table(filtered$CS_SEXO, filtered$nominal_outcome)
 ```{r}
 chisq.test(filtered$CS_SEXO, filtered$EVOLUCAO)
 ```
+#### Raw Odds Ratio
+
+```{r}
+filtered$CS_SEXO <- relevel(factor(filtered$CS_SEXO), ref = "F")
+
+m_raw <- glm(outcome ~ CS_SEXO,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
+```
+
 
 ### Race or Ethnicity, n
 
@@ -742,6 +860,23 @@ table(filtered$nominal_race, filtered$nominal_outcome)
 
 ```{r}
 fisher.test(filtered$nominal_race, filtered$EVOLUCAO)
+```
+#### Raw Odds Ratio
+
+```{r}
+filtered$nominal_race <- relevel(factor(filtered$nominal_race), ref = "White")
+
+m_raw <- glm(outcome ~ nominal_race,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
 ```
 
 ### Educational attainment, n
@@ -757,6 +892,55 @@ table(filtered$nominal_education, filtered$nominal_outcome)
 ```{r}
 chisq.test(filtered$nominal_education, filtered$EVOLUCAO)
 ```
+#### Raw Odds Ratio
+
+```{r}
+filtered$nominal_education <- relevel(factor(filtered$nominal_education), ref = "Bachelors")
+
+m_raw <- glm(outcome ~ nominal_education,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
+```
+
+### Educational level, n
+
+#### Description
+
+```{r}
+table(filtered$education_level, filtered$nominal_outcome)
+```
+
+#### Analysis
+
+```{r}
+chisq.test(filtered$education_level, filtered$EVOLUCAO)
+```
+
+#### Raw Odds Ratio
+
+```{r}
+filtered$education_level <- relevel(factor(filtered$education_level), ref = "High")
+
+m_raw <- glm(outcome ~ education_level,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
+```
 
 ### Other underlying risk conditions, n
 
@@ -770,6 +954,21 @@ table(filtered$at_least_one_risk, filtered$nominal_outcome)
 
 ```{r}
 fisher.test(filtered$at_least_one_risk, filtered$EVOLUCAO)
+```
+#### Raw Odds Ratio
+
+```{r}
+m_raw <- glm(outcome ~ at_least_one_risk,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
 ```
 
 ### Intensive care unit admission, n
@@ -785,6 +984,22 @@ table(filtered$nominal_icu_admission, filtered$nominal_outcome)
 ```{r}
 chisq.test(filtered$nominal_icu_admission, filtered$EVOLUCAO)
 ```
+#### Raw Odds Ratio
+
+```{r}
+m_raw <- glm(outcome ~ nominal_icu_admission,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
+```
+
 
 ### Invasive ventilatory support, n
 
@@ -798,6 +1013,21 @@ table(filtered$nominal_invasive_support_ven, filtered$nominal_outcome)
 
 ```{r}
 chisq.test(filtered$nominal_invasive_support_ven, filtered$EVOLUCAO)
+```
+#### Raw Odds Ratio
+
+```{r}
+m_raw <- glm(outcome ~ nominal_invasive_support_ven,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
 ```
 
 ### COVID-19 vaccine doses, n
@@ -813,6 +1043,41 @@ table(filtered$doses, filtered$nominal_outcome)
 ```{r}
 CochranArmitageTest(table(filtered$nominal_outcome, filtered$doses), alternative="one.sided")
 ```
+#### Raw Odds Ratio
+
+```{r}
+
+m_raw <- glm(outcome ~ doses,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
+```
+
+#### Raw Odds Ratio
+
+```{r}
+filtered$ndoses <- relevel(factor(filtered$doses), ref = "0")
+
+m_raw <- glm(outcome ~ ndoses,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
+```
+
 
 ### COVID-19 vaccine types, n
 
@@ -827,6 +1092,24 @@ table(filtered$nominal_vaccinal_schema, filtered$nominal_outcome)
 ```{r}
 fisher.test(filtered$nominal_vaccinal_schema, filtered$nominal_outcome, workspace = 20000000)
 ```
+#### Raw Odds Ratio
+
+```{r}
+filtered$nominal_vaccinal_schema <- relevel(factor(filtered$nominal_vaccinal_schema), ref = "None")
+
+m_raw <- glm(outcome ~ nominal_vaccinal_schema,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
+```
+
 
 ### Year of last COVID-19 vaccine dose, n
 
@@ -842,6 +1125,22 @@ table(filtered$last_year, filtered$nominal_outcome)
 fisher.test(filtered$last_year, filtered$nominal_outcome)
 ```
 
+```{r}
+filtered$last_year <- relevel(factor(filtered$last_year), ref = "2021")
+
+m_raw <- glm(outcome ~ last_year,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
+```
+
 ### COVID-19 specific treatment, n
 
 #### Description
@@ -855,6 +1154,23 @@ table(filtered$nominal_covid_treatment, filtered$nominal_outcome)
 ```{r}
 chisq.test(filtered$nominal_covid_treatment, filtered$nominal_outcome)
 ```
+#### Raw Odds Ratio
+
+```{r}
+
+m_raw <- glm(outcome ~ nominal_covid_treatment,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- exp(cbind(
+  OR = coef(m_raw),
+  confint(m_raw)
+))
+OR_raw
+
+```
+
 
 ## Final multivariate logistic regression model
 
@@ -873,6 +1189,76 @@ filtered$categorical_doses <- relevel(factor(filtered$categorical_doses), ref="u
 filtered$factor_doses <- relevel(factor(filtered$doses), ref=1)
 filtered$nominal_vaccinal_schema <- relevel(factor(filtered$nominal_vaccinal_schema), ref="None")
 filtered$nominal_covid_treatment <- relevel(factor(filtered$nominal_covid_treatment), ref="No")
+
+```
+
+## Time betwwen vaccination and outcome
+`
+```{r}
+min(filtered$days_since_last_vaccine , na.rm = TRUE)
+```
+
+```{r}
+filtered$days_since_last_vaccine
+```
+
+
+```{r}
+
+breaks <- seq(
+  0,
+  max(filtered$days_since_last_vaccine, na.rm = TRUE) + 30,
+  by = 30
+)
+
+labels <- paste0(
+  head(breaks, -1) / 30
+)
+
+filtered %>%
+  filter(
+    !is.na(days_since_last_vaccine),
+    !is.na(outcome)
+  ) %>%
+  ggplot(
+    aes(
+      x = cut(
+        days_since_last_vaccine,
+        breaks = breaks,
+        labels = labels,
+        include.lowest = TRUE
+      ),
+      fill = factor(outcome)
+    )
+  ) +
+  #geom_bar(position = "fill", na.rm = TRUE) +
+  geom_bar(na.rm = TRUE) +
+  geom_text(
+    stat = "count",
+    aes(
+      y = after_stat(count), 
+      label = after_stat(count),
+      group = factor(outcome)
+    ),
+    #position = position_fill(vjust = 0.5),
+    position = position_stack(vjust= 0.5),
+    color = "black",
+    size = 3,
+    na.rm = TRUE
+  ) +
+  scale_fill_manual(
+    values = c("0" = "#faa", "1" = "#afa"),
+    labels = c("0" = "Non-survivor", "1" = "Survivor")
+  ) +
+  labs(
+    x = "Months since last vaccine",
+    y = "Count",
+    fill = "Outcome"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
 
 ```
 
@@ -1430,6 +1816,117 @@ AUC between 0.7 and 0.8: acceptable ability to discriminate between classes Enti
 ```{r}
 plot(roc_obj, main = "ROC Curve")
 ```
+
+### Alternative E - Main version, but reduces education level group
+
+Category: variable (Ref: value): groups...
+
+-   Age: covariate NU_IDADE_N
+-   Gender: CS_SEXO (Ref: F): M
+-   Educational Attainment: education_level (Ref: Elementary): Middle, High, Unknown
+-   ICU: nominal_icu_admission (Ref: No): Yes
+-   Invasive Support Ven: nominal_invasive_support_ven (Ref: No): Yes
+-   Doses: categorical_doses (Ref: unvaccinated): 1-2, 3, 4+
+
+#### Logistic Regression
+
+```{r}
+filtered$rcategorical_doses <- relevel(factor(filtered$categorical_doses), ref = "unvaccinated")
+filtered$reducation_level <- relevel(factor(filtered$education_level), ref = "High")
+
+
+model <- glm(outcome ~ NU_IDADE_N + CS_SEXO +
+               reducation_level +
+               nominal_icu_admission + 
+               nominal_invasive_support_ven + rcategorical_doses,
+               family = binomial,
+               data = filtered)
+
+summary_model <- summary(model)
+print(summary_model)
+```
+
+```{r}
+odds_ratios <- exp(coef(model))
+conf_int <- exp(confint(model))
+data.frame(
+  variable = names(coef(model)),
+  OR = round(odds_ratios, 2),
+  IC_95_inf = round(conf_int[,1], 2),
+  IC_95_sup = round(conf_int[,2], 2),
+  pvalue = round(summary_model$coefficients[,4], 3)
+)
+```
+
+#### Variance inflation factor
+
+```{r}
+vif_results <- car::vif(model)
+print(vif_results)
+```
+
+No multicollinearity detected.
+
+#### Forest Plot
+
+```{r}
+label_map <- c(
+  "NU_IDADE_N" = "Age",
+  "CS_SEXOM" = "Male",
+  "reducation_levelElementary" = "Elementary Education",
+  "reducation_levelMiddle" = "Middle Education",
+  "reducation_levelUnknown" = "Unknown Education",
+  "nominal_icu_admissionYes" = "ICU Admission",
+  "nominal_invasive_support_venYes" = "Invasive Ventilation",
+  "rcategorical_doses1-2" = "1-2 Doses",
+  "rcategorical_doses3" = "3 Doses",
+  "rcategorical_doses4+" = "4+ Doses"
+)
+
+
+coef_df <- as.data.frame(confint(model))  # 95% CI
+coef_df$Estimate <- coef(model)
+coef_df$OR <- exp(coef_df$Estimate)
+coef_df$LowerCI <- exp(coef_df[, 1])
+coef_df$UpperCI <- exp(coef_df[, 2])
+coef_df$Variable <- label_map[rownames(coef_df)]
+coef_df= coef_df[row.names(coef_df) != "reducation_levelUnknown",]
+
+ggplot(coef_df[-1, ], aes(x = reorder(Variable, OR), y = OR)) +  # remove Intercept
+  geom_point() +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI), width = 0.2) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  coord_flip() +
+  labs(title = "Forest Plot of Logistic Regression",
+       x = "Variables",
+       y = "Odds Ratio (95% CI)") +
+  theme_minimal()
+```
+
+#### Hosmer-Lemeshow Test
+
+```{r}
+hl_test <- hoslem.test(model$y, fitted(model), g = 10)
+print(hl_test)
+```
+
+p-value \> 0.05 -\> no evidence of poor fit
+
+#### ROC and AUC
+
+```{r}
+roc_obj <- roc(response = filtered$outcome,
+               predictor = predict(model, type = "response"))
+auc(roc_obj)
+ci.auc(roc_obj)
+```
+
+AUC between 0.7 and 0.8: acceptable ability to discriminate between classes Entire confidence interval above 0.5: model performs better than random
+
+```{r}
+plot(roc_obj, main = "ROC Curve")
+```
+
 
 ## Vaccination schema
 
