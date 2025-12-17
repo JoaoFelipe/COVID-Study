@@ -1670,6 +1670,8 @@ treatment</a></li>
 outcome</a></li>
 </ul></li>
 <li><a href="#create-test-spreadsheet" id="toc-create-test-spreadsheet">Create test spreadsheet</a></li>
+<li><a href="#set-references" id="toc-set-references">Set
+references</a></li>
 <li><a href="#population-characterization" id="toc-population-characterization">Population characterization</a>
 <ul>
 <li><a href="#age" id="toc-age">Age</a></li>
@@ -1803,8 +1805,6 @@ n</a>
 Ratio</a></li>
 </ul></li>
 </ul></li>
-<li><a href="#final-multivariate-logistic-regression-model" id="toc-final-multivariate-logistic-regression-model">Final multivariate
-logistic regression model</a></li>
 <li><a href="#time-betwwen-vaccination-and-outcome" id="toc-time-betwwen-vaccination-and-outcome">Time betwwen vaccination
 and outcome</a>
 <ul>
@@ -2395,6 +2395,27 @@ nonsurvivors &lt;- filtered %&gt;%
 <p>Create <code>test.xlsx</code> file</p>
 <pre class="r"><code>write.xlsx(test_dataframe, &quot;test.xlsx&quot;)</code></pre>
 </div>
+<div id="set-references" class="section level2">
+<h2>Set references</h2>
+<pre class="r"><code>filtered$outcome &lt;- relevel(factor(filtered$outcome), ref=&quot;1&quot;)
+filtered$age_groups &lt;- relevel(factor(filtered$age_groups), ref = &quot;60-69&quot;)
+filtered$CS_SEXO &lt;- relevel(factor(filtered$CS_SEXO), ref = &quot;F&quot;)
+filtered$nominal_race &lt;- relevel(factor(filtered$nominal_race), ref=&quot;White&quot;)
+filtered$nominal_icu_admission &lt;- factor(filtered$nominal_icu_admission)
+filtered$nominal_invasive_support_ven &lt;- factor(filtered$nominal_invasive_support_ven)
+filtered$educational_attainment &lt;- relevel(factor(filtered$educational_attainment), ref=&quot;bachelor&quot;)
+filtered$nominal_education &lt;- relevel(factor(filtered$nominal_education), ref = &quot;Bachelors&quot;)
+filtered$education_level &lt;- relevel(factor(filtered$education_level), ref = &quot;High&quot;)
+filtered$at_least_one_risk &lt;- factor(filtered$at_least_one_risk)
+filtered$risk_groups &lt;- relevel(factor(filtered$risk_groups), ref=&quot;None&quot;)
+filtered$categorical_doses &lt;- relevel(factor(filtered$categorical_doses), ref=&quot;unvaccinated&quot;)
+filtered$factor_doses &lt;- relevel(factor(filtered$doses), ref=1)
+filtered$nominal_vaccinal_schema &lt;- relevel(factor(filtered$nominal_vaccinal_schema), ref=&quot;None&quot;)
+filtered$nominal_covid_treatment &lt;- relevel(factor(filtered$nominal_covid_treatment), ref=&quot;No&quot;)
+filtered$education_level &lt;- relevel(factor(filtered$education_level), ref = &quot;High&quot;)
+filtered$ndoses &lt;- relevel(factor(filtered$doses), ref = &quot;0&quot;)
+filtered$last_year &lt;- relevel(factor(filtered$last_year), ref = &quot;2021&quot;)</code></pre>
+</div>
 <div id="population-characterization" class="section level2">
 <h2>Population characterization</h2>
 <p>In total, 474 immunocompromised older adults hospitalized for
@@ -2552,9 +2573,9 @@ OR_raw &lt;- exp(cbind(
 ))</code></pre>
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
-<pre><code>##                    OR     2.5 %   97.5 %
-## (Intercept) 1.8904976 1.3890056 2.591258
-## SEM_PRI     0.9970135 0.9856987 1.008502</code></pre>
+<pre><code>##                    OR     2.5 %    97.5 %
+## (Intercept) 0.5289613 0.3859129 0.7199395
+## SEM_PRI     1.0029955 0.9915701 1.0145088</code></pre>
 </div>
 </div>
 <div id="days-from-onset-of-first-symptoms" class="section level3">
@@ -2612,9 +2633,9 @@ OR_raw &lt;- exp(cbind(
 ))</code></pre>
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
-<pre><code>##                   OR     2.5 %   97.5 %
-## (Intercept) 1.612316 1.2846770 2.025350
-## delta_days  1.028661 0.9905925 1.074041</code></pre>
+<pre><code>##                    OR     2.5 %    97.5 %
+## (Intercept) 0.6202259 0.4937418 0.7784058
+## delta_days  0.9721380 0.9310631 1.0094969</code></pre>
 </div>
 </div>
 <div id="age-group-years-n" class="section level3">
@@ -2639,9 +2660,7 @@ OR_raw &lt;- exp(cbind(
 </div>
 <div id="raw-odds-ratio-2" class="section level4">
 <h4>Raw Odds Ratio</h4>
-<pre class="r"><code>filtered$age_groups &lt;- relevel(factor(filtered$age_groups), ref = &quot;60-69&quot;)
-
-m_raw &lt;- glm(outcome ~ age_groups,
+<pre class="r"><code>m_raw &lt;- glm(outcome ~ age_groups,
                data = filtered,
                family = binomial)
 
@@ -2652,13 +2671,11 @@ OR_raw &lt;- exp(cbind(
 ))</code></pre>
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
-<pre><code>##                       OR     2.5 %   97.5 %
-## (Intercept)     1.688525 1.2346875 2.329110
-## age_groups70-79 1.128595 0.7133423 1.789082
-## age_groups80+   1.028615 0.6528602 1.621855</code></pre>
-<pre class="r"><code>filtered$age_groups &lt;- relevel(factor(filtered$age_groups), ref = &quot;60-69&quot;)
-
-m_raw &lt;- glm(outcome ~ NU_IDADE_N,
+<pre><code>##                        OR     2.5 %    97.5 %
+## (Intercept)     0.5922330 0.4293485 0.8099215
+## age_groups70-79 0.8860575 0.5589459 1.4018516
+## age_groups80+   0.9721808 0.6165781 1.5317215</code></pre>
+<pre class="r"><code>m_raw &lt;- glm(outcome ~ NU_IDADE_N,
                data = filtered,
                family = binomial)
 
@@ -2670,8 +2687,8 @@ OR_raw &lt;- exp(cbind(
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
 <pre><code>##                    OR     2.5 %   97.5 %
-## (Intercept) 1.9409619 0.4546215 8.305093
-## NU_IDADE_N  0.9987845 0.9798151 1.018224</code></pre>
+## (Intercept) 0.5152085 0.1204080 2.199632
+## NU_IDADE_N  1.0012170 0.9821024 1.020601</code></pre>
 </div>
 </div>
 <div id="gender-n" class="section level3">
@@ -2695,9 +2712,7 @@ OR_raw &lt;- exp(cbind(
 </div>
 <div id="raw-odds-ratio-3" class="section level4">
 <h4>Raw Odds Ratio</h4>
-<pre class="r"><code>filtered$CS_SEXO &lt;- relevel(factor(filtered$CS_SEXO), ref = &quot;F&quot;)
-
-m_raw &lt;- glm(outcome ~ CS_SEXO,
+<pre class="r"><code>m_raw &lt;- glm(outcome ~ CS_SEXO,
                data = filtered,
                family = binomial)
 
@@ -2708,9 +2723,9 @@ OR_raw &lt;- exp(cbind(
 ))</code></pre>
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
-<pre><code>##                   OR     2.5 %   97.5 %
-## (Intercept) 1.625000 1.2629960 2.101550
-## CS_SEXOM    1.206154 0.8281003 1.760726</code></pre>
+<pre><code>##                    OR     2.5 %    97.5 %
+## (Intercept) 0.6153846 0.4758392 0.7917681
+## CS_SEXOM    0.8290816 0.5679475 1.2075831</code></pre>
 </div>
 </div>
 <div id="race-or-ethnicity-n" class="section level3">
@@ -2720,10 +2735,10 @@ OR_raw &lt;- exp(cbind(
 <pre class="r"><code>table(filtered$nominal_race, filtered$nominal_outcome)</code></pre>
 <pre><code>##          
 ##           Non-survivor Survivor
+##   White            109      202
 ##   Black              3        7
 ##   Brown             43       54
 ##   Unknown           15       37
-##   White            109      202
 ##   Yellow             1        3</code></pre>
 </div>
 <div id="analysis-2" class="section level4">
@@ -2738,9 +2753,7 @@ OR_raw &lt;- exp(cbind(
 </div>
 <div id="raw-odds-ratio-4" class="section level4">
 <h4>Raw Odds Ratio</h4>
-<pre class="r"><code>filtered$nominal_race &lt;- relevel(factor(filtered$nominal_race), ref = &quot;White&quot;)
-
-m_raw &lt;- glm(outcome ~ nominal_race,
+<pre class="r"><code>m_raw &lt;- glm(outcome ~ nominal_race,
                data = filtered,
                family = binomial)
 
@@ -2751,12 +2764,12 @@ OR_raw &lt;- exp(cbind(
 ))</code></pre>
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
-<pre><code>##                            OR     2.5 %    97.5 %
-## (Intercept)         1.8532110 1.4717058  2.346305
-## nominal_raceBlack   1.2590759 0.3425700  5.930939
-## nominal_raceBrown   0.6776422 0.4266204  1.079828
-## nominal_raceUnknown 1.3310231 0.7119121  2.600455
-## nominal_raceYellow  1.6188119 0.2045130 32.939786</code></pre>
+<pre><code>##                            OR      2.5 %    97.5 %
+## (Intercept)         0.5396040 0.42620204 0.6794836
+## nominal_raceBlack   0.7942333 0.16860737 2.9191112
+## nominal_raceBrown   1.4757051 0.92607307 2.3440043
+## nominal_raceUnknown 0.7513018 0.38454812 1.4046677
+## nominal_raceYellow  0.6177370 0.03035842 4.8896656</code></pre>
 </div>
 </div>
 <div id="educational-attainment-n" class="section level3">
@@ -2783,9 +2796,7 @@ OR_raw &lt;- exp(cbind(
 </div>
 <div id="raw-odds-ratio-5" class="section level4">
 <h4>Raw Odds Ratio</h4>
-<pre class="r"><code>filtered$nominal_education &lt;- relevel(factor(filtered$nominal_education), ref = &quot;Bachelors&quot;)
-
-m_raw &lt;- glm(outcome ~ nominal_education,
+<pre class="r"><code>m_raw &lt;- glm(outcome ~ nominal_education,
                data = filtered,
                family = binomial)
 
@@ -2797,11 +2808,11 @@ OR_raw &lt;- exp(cbind(
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
 <pre><code>##                                    OR      2.5 %     97.5 %
-## (Intercept)                 4.2000000 1.71211398 12.5796094
-## nominal_educationElementary 0.2705628 0.08467546  0.7283296
-## nominal_educationHighschool 0.6972789 0.20310247  2.1032995
-## nominal_educationMiddle     0.2645503 0.07560836  0.8048389
-## nominal_educationUnknown    0.4523810 0.14717556  1.1530251</code></pre>
+## (Intercept)                 0.2380952 0.07949372  0.5840733
+## nominal_educationElementary 3.6960000 1.37300475 11.8097970
+## nominal_educationHighschool 1.4341463 0.47544346  4.9236231
+## nominal_educationMiddle     3.7800000 1.24248466 13.2260502
+## nominal_educationUnknown    2.2105263 0.86728382  6.7946065</code></pre>
 </div>
 </div>
 <div id="educational-level-n" class="section level3">
@@ -2811,8 +2822,8 @@ OR_raw &lt;- exp(cbind(
 <pre class="r"><code>table(filtered$education_level, filtered$nominal_outcome)</code></pre>
 <pre><code>##             
 ##              Non-survivor Survivor
-##   Elementary           44       50
 ##   High                 19       62
+##   Elementary           44       50
 ##   Middle               18       20
 ##   Unknown              90      171</code></pre>
 </div>
@@ -2827,9 +2838,7 @@ OR_raw &lt;- exp(cbind(
 </div>
 <div id="raw-odds-ratio-6" class="section level4">
 <h4>Raw Odds Ratio</h4>
-<pre class="r"><code>filtered$education_level &lt;- relevel(factor(filtered$education_level), ref = &quot;High&quot;)
-
-m_raw &lt;- glm(outcome ~ education_level,
+<pre class="r"><code>m_raw &lt;- glm(outcome ~ education_level,
                data = filtered,
                family = binomial)
 
@@ -2841,10 +2850,10 @@ OR_raw &lt;- exp(cbind(
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
 <pre><code>##                                  OR     2.5 %    97.5 %
-## (Intercept)               3.2631579 1.9920759 5.6028060
-## education_levelElementary 0.3482405 0.1780856 0.6623057
-## education_levelMiddle     0.3405018 0.1486162 0.7693204
-## education_levelUnknown    0.5822581 0.3212204 1.0175240</code></pre>
+## (Intercept)               0.3064516 0.1784820 0.5019889
+## education_levelElementary 2.8715789 1.5098769 5.6152766
+## education_levelMiddle     2.9368421 1.2998485 6.7287416
+## education_levelUnknown    1.7174515 0.9827778 3.1131269</code></pre>
 </div>
 </div>
 <div id="other-underlying-risk-conditions-n" class="section level3">
@@ -2885,9 +2894,9 @@ OR_raw &lt;- exp(cbind(
 ))</code></pre>
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
-<pre><code>##                        OR     2.5 %   97.5 %
-## (Intercept)       1.50000 1.0962048 2.066326
-## at_least_one_risk 1.28972 0.8691474 1.909395</code></pre>
+<pre><code>##                           OR     2.5 %    97.5 %
+## (Intercept)        0.6666667 0.4839507 0.9122383
+## at_least_one_risk1 0.7753623 0.5237261 1.1505528</code></pre>
 </div>
 </div>
 <div id="intensive-care-unit-admission-n" class="section level3">
@@ -2923,8 +2932,8 @@ OR_raw &lt;- exp(cbind(
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
 <pre><code>##                                 OR     2.5 %    97.5 %
-## (Intercept)              2.5402299 1.9903778 3.2711299
-## nominal_icu_admissionYes 0.3842922 0.2589282 0.5681968</code></pre>
+## (Intercept)              0.3936652 0.3057048 0.5024172
+## nominal_icu_admissionYes 2.6021867 1.7599535 3.8620747</code></pre>
 </div>
 </div>
 <div id="invasive-ventilatory-support-n" class="section level3">
@@ -2959,9 +2968,9 @@ OR_raw &lt;- exp(cbind(
 ))</code></pre>
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
-<pre><code>##                                         OR      2.5 %    97.5 %
-## (Intercept)                     2.76190476 2.21741295 3.4670380
-## nominal_invasive_support_venYes 0.07131661 0.03629632 0.1305081</code></pre>
+<pre><code>##                                        OR     2.5 %    97.5 %
+## (Intercept)                      0.362069 0.2884306  0.450976
+## nominal_invasive_support_venYes 14.021978 7.6623591 27.551005</code></pre>
 </div>
 </div>
 <div id="covid-19-vaccine-doses-n" class="section level3">
@@ -3001,15 +3010,13 @@ OR_raw &lt;- exp(cbind(
 ))</code></pre>
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
-<pre><code>##                   OR     2.5 %   97.5 %
-## (Intercept) 1.359359 0.9019903 2.060881
-## doses       1.113831 0.9580769 1.295368</code></pre>
+<pre><code>##                    OR     2.5 %   97.5 %
+## (Intercept) 0.7356411 0.4852294 1.108659
+## doses       0.8978024 0.7719814 1.043758</code></pre>
 </div>
 <div id="raw-odds-ratio-11" class="section level4">
 <h4>Raw Odds Ratio</h4>
-<pre class="r"><code>filtered$ndoses &lt;- relevel(factor(filtered$doses), ref = &quot;0&quot;)
-
-m_raw &lt;- glm(outcome ~ ndoses,
+<pre class="r"><code>m_raw &lt;- glm(outcome ~ ndoses,
                data = filtered,
                family = binomial)
 
@@ -3020,13 +3027,13 @@ OR_raw &lt;- exp(cbind(
 ))</code></pre>
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
-<pre><code>##                   OR     2.5 %    97.5 %
-## (Intercept) 1.320000 0.7876130  2.240120
-## ndoses1     2.272727 0.4767749 16.416643
-## ndoses2     1.270396 0.6907210  2.319595
-## ndoses3     1.391825 0.7320023  2.636472
-## ndoses4     1.536797 0.7934092  2.974206
-## ndoses5     3.787879 0.5637903 75.013742</code></pre>
+<pre><code>##                    OR      2.5 %   97.5 %
+## (Intercept) 0.7575758 0.44640457 1.269659
+## ndoses1     0.4400000 0.06091379 2.097426
+## ndoses2     0.7871560 0.43110978 1.447763
+## ndoses3     0.7184810 0.37929470 1.366116
+## ndoses4     0.6507042 0.33622417 1.260384
+## ndoses5     0.2640000 0.01333089 1.773709</code></pre>
 </div>
 </div>
 <div id="covid-19-vaccine-types-n" class="section level3">
@@ -3036,13 +3043,13 @@ OR_raw &lt;- exp(cbind(
 <pre class="r"><code>table(filtered$nominal_vaccinal_schema, filtered$nominal_outcome)</code></pre>
 <pre><code>##                                    
 ##                                     Non-survivor Survivor
+##   None                                        25       33
 ##   Inactivated + mRNA                          18       49
 ##   Inactivated + mRNA + viral vector           19       31
 ##   Inactivated + Viral vector                  15       19
 ##   Inactivated only                            28       61
 ##   mRNA + viral vector                         22       42
 ##   mRNA only                                    3       10
-##   None                                        25       33
 ##   Viral vector only                           41       58</code></pre>
 </div>
 <div id="analysis-8" class="section level4">
@@ -3070,24 +3077,24 @@ OR_raw &lt;- exp(cbind(
 ))</code></pre>
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
-<pre><code>##                                                                OR     2.5 %
-## (Intercept)                                              1.320000 0.7876130
-## nominal_vaccinal_schemaInactivated + mRNA                2.062290 0.9803313
-## nominal_vaccinal_schemaInactivated + mRNA + viral vector 1.236045 0.5720257
-## nominal_vaccinal_schemaInactivated + Viral vector        0.959596 0.4084968
-## nominal_vaccinal_schemaInactivated only                  1.650433 0.8310028
-## nominal_vaccinal_schemamRNA + viral vector               1.446281 0.6963998
-## nominal_vaccinal_schemamRNA only                         2.525253 0.6879479
-## nominal_vaccinal_schemaViral vector only                 1.071693 0.5539858
-##                                                             97.5 %
-## (Intercept)                                               2.240120
-## nominal_vaccinal_schemaInactivated + mRNA                 4.415195
-## nominal_vaccinal_schemaInactivated + mRNA + viral vector  2.694408
-## nominal_vaccinal_schemaInactivated + Viral vector         2.269908
-## nominal_vaccinal_schemaInactivated only                   3.288803
-## nominal_vaccinal_schemamRNA + viral vector                3.026351
-## nominal_vaccinal_schemamRNA only                         12.140612
-## nominal_vaccinal_schemaViral vector only                  2.063897</code></pre>
+<pre><code>##                                                                 OR      2.5 %
+## (Intercept)                                              0.7575758 0.44640457
+## nominal_vaccinal_schemaInactivated + mRNA                0.4848980 0.22649057
+## nominal_vaccinal_schemaInactivated + mRNA + viral vector 0.8090323 0.37113901
+## nominal_vaccinal_schemaInactivated + Viral vector        1.0421053 0.44054653
+## nominal_vaccinal_schemaInactivated only                  0.6059016 0.30406198
+## nominal_vaccinal_schemamRNA + viral vector               0.6914286 0.33043099
+## nominal_vaccinal_schemamRNA only                         0.3960000 0.08236817
+## nominal_vaccinal_schemaViral vector only                 0.9331034 0.48452036
+##                                                            97.5 %
+## (Intercept)                                              1.269659
+## nominal_vaccinal_schemaInactivated + mRNA                1.020063
+## nominal_vaccinal_schemaInactivated + mRNA + viral vector 1.748173
+## nominal_vaccinal_schemaInactivated + Viral vector        2.447999
+## nominal_vaccinal_schemaInactivated only                  1.203365
+## nominal_vaccinal_schemamRNA + viral vector               1.435957
+## nominal_vaccinal_schemamRNA only                         1.453598
+## nominal_vaccinal_schemaViral vector only                 1.805100</code></pre>
 </div>
 </div>
 <div id="year-of-last-covid-19-vaccine-dose-n" class="section level3">
@@ -3110,9 +3117,7 @@ OR_raw &lt;- exp(cbind(
 ## data:  filtered$last_year and filtered$nominal_outcome
 ## p-value = 1
 ## alternative hypothesis: two.sided</code></pre>
-<pre class="r"><code>filtered$last_year &lt;- relevel(factor(filtered$last_year), ref = &quot;2021&quot;)
-
-m_raw &lt;- glm(outcome ~ last_year,
+<pre class="r"><code>m_raw &lt;- glm(outcome ~ last_year,
                data = filtered,
                family = binomial)
 
@@ -3123,10 +3128,10 @@ OR_raw &lt;- exp(cbind(
 ))</code></pre>
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
-<pre><code>##                     OR     2.5 %   97.5 %
-## (Intercept)   1.828571 1.3713618 2.458582
-## last_year2022 1.018836 0.6776913 1.531275
-## last_year2023 1.093750 0.2795336 5.306437</code></pre>
+<pre><code>##                      OR     2.5 %    97.5 %
+## (Intercept)   0.5468750 0.4067386 0.7292021
+## last_year2022 0.9815126 0.6530508 1.4755981
+## last_year2023 0.9142857 0.1884504 3.5773869</code></pre>
 </div>
 </div>
 <div id="covid-19-specific-treatment-n" class="section level3">
@@ -3161,28 +3166,11 @@ OR_raw &lt;- exp(cbind(
 ))</code></pre>
 <pre><code>## Waiting for profiling to be done...</code></pre>
 <pre class="r"><code>OR_raw</code></pre>
-<pre><code>##                                  OR     2.5 %   97.5 %
-## (Intercept)                1.736527 1.4376031 2.104456
-## nominal_covid_treatmentYes 1.871552 0.6502974 6.728136</code></pre>
+<pre><code>##                                   OR     2.5 %    97.5 %
+## (Intercept)                0.5758621 0.4751821 0.6956023
+## nominal_covid_treatmentYes 0.5343160 0.1486296 1.5377579</code></pre>
 </div>
 </div>
-</div>
-<div id="final-multivariate-logistic-regression-model" class="section level2">
-<h2>Final multivariate logistic regression model</h2>
-<pre class="r"><code>filtered$outcome &lt;- relevel(factor(filtered$outcome), ref=&quot;1&quot;)
-filtered$age_groups &lt;- factor(filtered$age_groups)
-filtered$CS_SEXO &lt;- factor(filtered$CS_SEXO)
-filtered$nominal_race &lt;- relevel(factor(filtered$nominal_race), ref=&quot;White&quot;)
-filtered$nominal_icu_admission &lt;- factor(filtered$nominal_icu_admission)
-filtered$nominal_invasive_support_ven &lt;- factor(filtered$nominal_invasive_support_ven)
-filtered$educational_attainment &lt;- relevel(factor(filtered$educational_attainment), ref=&quot;bachelor&quot;)
-filtered$nominal_education &lt;- factor(filtered$nominal_education)
-filtered$at_least_one_risk &lt;- factor(filtered$at_least_one_risk)
-filtered$risk_groups &lt;- relevel(factor(filtered$risk_groups), ref=&quot;None&quot;)
-filtered$categorical_doses &lt;- relevel(factor(filtered$categorical_doses), ref=&quot;unvaccinated&quot;)
-filtered$factor_doses &lt;- relevel(factor(filtered$doses), ref=1)
-filtered$nominal_vaccinal_schema &lt;- relevel(factor(filtered$nominal_vaccinal_schema), ref=&quot;None&quot;)
-filtered$nominal_covid_treatment &lt;- relevel(factor(filtered$nominal_covid_treatment), ref=&quot;No&quot;)</code></pre>
 </div>
 <div id="time-betwwen-vaccination-and-outcome" class="section level2">
 <h2>Time betwwen vaccination and outcome</h2>
@@ -4104,14 +4092,10 @@ Yes</li>
 </ul>
 <div id="logistic-regression-5" class="section level4">
 <h4>Logistic Regression</h4>
-<pre class="r"><code>filtered$rcategorical_doses &lt;- relevel(factor(filtered$categorical_doses), ref = &quot;unvaccinated&quot;)
-filtered$reducation_level &lt;- relevel(factor(filtered$education_level), ref = &quot;High&quot;)
-
-
-model &lt;- glm(outcome ~ NU_IDADE_N + CS_SEXO +
-               reducation_level +
+<pre class="r"><code>model &lt;- glm(outcome ~ NU_IDADE_N + CS_SEXO +
+               education_level +
                nominal_icu_admission + 
-               nominal_invasive_support_ven + rcategorical_doses,
+               nominal_invasive_support_ven + categorical_doses,
                family = binomial,
                data = filtered)
 
@@ -4119,8 +4103,8 @@ summary_model &lt;- summary(model)
 print(summary_model)</code></pre>
 <pre><code>## 
 ## Call:
-## glm(formula = outcome ~ NU_IDADE_N + CS_SEXO + reducation_level + 
-##     nominal_icu_admission + nominal_invasive_support_ven + rcategorical_doses, 
+## glm(formula = outcome ~ NU_IDADE_N + CS_SEXO + education_level + 
+##     nominal_icu_admission + nominal_invasive_support_ven + categorical_doses, 
 ##     family = binomial, data = filtered)
 ## 
 ## Coefficients:
@@ -4128,14 +4112,14 @@ print(summary_model)</code></pre>
 ## (Intercept)                     -2.04034    0.92905  -2.196  0.02808 *  
 ## NU_IDADE_N                       0.00914    0.01129   0.810  0.41806    
 ## CS_SEXOM                         0.06443    0.21974   0.293  0.76937    
-## reducation_levelElementary       1.07408    0.38602   2.782  0.00539 ** 
-## reducation_levelMiddle           1.05637    0.47638   2.218  0.02659 *  
-## reducation_levelUnknown          0.55081    0.33784   1.630  0.10303    
+## education_levelElementary        1.07408    0.38602   2.782  0.00539 ** 
+## education_levelMiddle            1.05637    0.47638   2.218  0.02659 *  
+## education_levelUnknown           0.55081    0.33784   1.630  0.10303    
 ## nominal_icu_admissionYes         0.37602    0.25589   1.469  0.14170    
 ## nominal_invasive_support_venYes  2.52133    0.35909   7.021  2.2e-12 ***
-## rcategorical_doses1-2           -0.35941    0.33773  -1.064  0.28725    
-## rcategorical_doses3             -0.62634    0.37357  -1.677  0.09362 .  
-## rcategorical_doses4+            -0.57751    0.37483  -1.541  0.12339    
+## categorical_doses1-2            -0.35941    0.33773  -1.064  0.28725    
+## categorical_doses3              -0.62634    0.37357  -1.677  0.09362 .  
+## categorical_doses4+             -0.57751    0.37483  -1.541  0.12339    
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
@@ -4158,7 +4142,7 @@ conf_int &lt;- exp(confint(model))</code></pre>
 )</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["OR"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["IC_95_inf"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["IC_95_sup"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["pvalue"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"(Intercept)","2":"0.13","3":"0.02","4":"0.80","5":"0.028","_rn_":"(Intercept)"},{"1":"NU_IDADE_N","2":"1.01","3":"0.99","4":"1.03","5":"0.418","_rn_":"NU_IDADE_N"},{"1":"CS_SEXOM","2":"1.07","3":"0.69","4":"1.64","5":"0.769","_rn_":"CS_SEXOM"},{"1":"reducation_levelElementary","2":"2.93","3":"1.39","4":"6.37","5":"0.005","_rn_":"reducation_levelElementary"},{"1":"reducation_levelMiddle","2":"2.88","3":"1.13","4":"7.39","5":"0.027","_rn_":"reducation_levelMiddle"},{"1":"reducation_levelUnknown","2":"1.73","3":"0.91","4":"3.45","5":"0.103","_rn_":"reducation_levelUnknown"},{"1":"nominal_icu_admissionYes","2":"1.46","3":"0.88","4":"2.40","5":"0.142","_rn_":"nominal_icu_admissionYes"},{"1":"nominal_invasive_support_venYes","2":"12.45","3":"6.34","4":"26.12","5":"0.000","_rn_":"nominal_invasive_support_venYes"},{"1":"rcategorical_doses1-2","2":"0.70","3":"0.36","4":"1.36","5":"0.287","_rn_":"rcategorical_doses1-2"},{"1":"rcategorical_doses3","2":"0.53","3":"0.26","4":"1.11","5":"0.094","_rn_":"rcategorical_doses3"},{"1":"rcategorical_doses4+","2":"0.56","3":"0.27","4":"1.17","5":"0.123","_rn_":"rcategorical_doses4+"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["variable"],"name":[1],"type":["chr"],"align":["left"]},{"label":["OR"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["IC_95_inf"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["IC_95_sup"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["pvalue"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"(Intercept)","2":"0.13","3":"0.02","4":"0.80","5":"0.028","_rn_":"(Intercept)"},{"1":"NU_IDADE_N","2":"1.01","3":"0.99","4":"1.03","5":"0.418","_rn_":"NU_IDADE_N"},{"1":"CS_SEXOM","2":"1.07","3":"0.69","4":"1.64","5":"0.769","_rn_":"CS_SEXOM"},{"1":"education_levelElementary","2":"2.93","3":"1.39","4":"6.37","5":"0.005","_rn_":"education_levelElementary"},{"1":"education_levelMiddle","2":"2.88","3":"1.13","4":"7.39","5":"0.027","_rn_":"education_levelMiddle"},{"1":"education_levelUnknown","2":"1.73","3":"0.91","4":"3.45","5":"0.103","_rn_":"education_levelUnknown"},{"1":"nominal_icu_admissionYes","2":"1.46","3":"0.88","4":"2.40","5":"0.142","_rn_":"nominal_icu_admissionYes"},{"1":"nominal_invasive_support_venYes","2":"12.45","3":"6.34","4":"26.12","5":"0.000","_rn_":"nominal_invasive_support_venYes"},{"1":"categorical_doses1-2","2":"0.70","3":"0.36","4":"1.36","5":"0.287","_rn_":"categorical_doses1-2"},{"1":"categorical_doses3","2":"0.53","3":"0.26","4":"1.11","5":"0.094","_rn_":"categorical_doses3"},{"1":"categorical_doses4+","2":"0.56","3":"0.27","4":"1.17","5":"0.123","_rn_":"categorical_doses4+"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 </div>
@@ -4169,10 +4153,10 @@ print(vif_results)</code></pre>
 <pre><code>##                                  GVIF Df GVIF^(1/(2*Df))
 ## NU_IDADE_N                   1.063540  1        1.031281
 ## CS_SEXO                      1.021828  1        1.010855
-## reducation_level             1.116227  3        1.018495
+## education_level              1.116227  3        1.018495
 ## nominal_icu_admission        1.264420  1        1.124464
 ## nominal_invasive_support_ven 1.201779  1        1.096257
-## rcategorical_doses           1.076282  3        1.012328</code></pre>
+## categorical_doses            1.076282  3        1.012328</code></pre>
 <p>No multicollinearity detected.</p>
 </div>
 <div id="forest-plot-5" class="section level4">
@@ -4180,14 +4164,14 @@ print(vif_results)</code></pre>
 <pre class="r"><code>label_map &lt;- c(
   &quot;NU_IDADE_N&quot; = &quot;Age&quot;,
   &quot;CS_SEXOM&quot; = &quot;Male&quot;,
-  &quot;reducation_levelElementary&quot; = &quot;Elementary Education&quot;,
-  &quot;reducation_levelMiddle&quot; = &quot;Middle Education&quot;,
-  &quot;reducation_levelUnknown&quot; = &quot;Unknown Education&quot;,
+  &quot;education_levelElementary&quot; = &quot;Elementary Education&quot;,
+  &quot;education_levelMiddle&quot; = &quot;Middle Education&quot;,
+  &quot;education_levelUnknown&quot; = &quot;Unknown Education&quot;,
   &quot;nominal_icu_admissionYes&quot; = &quot;ICU Admission&quot;,
   &quot;nominal_invasive_support_venYes&quot; = &quot;Invasive Ventilation&quot;,
-  &quot;rcategorical_doses1-2&quot; = &quot;1-2 Doses&quot;,
-  &quot;rcategorical_doses3&quot; = &quot;3 Doses&quot;,
-  &quot;rcategorical_doses4+&quot; = &quot;4+ Doses&quot;
+  &quot;categorical_doses1-2&quot; = &quot;1-2 Doses&quot;,
+  &quot;categorical_doses3&quot; = &quot;3 Doses&quot;,
+  &quot;categorical_doses4+&quot; = &quot;4+ Doses&quot;
 )
 
 
@@ -4198,7 +4182,7 @@ coef_df$OR &lt;- exp(coef_df$Estimate)
 coef_df$LowerCI &lt;- exp(coef_df[, 1])
 coef_df$UpperCI &lt;- exp(coef_df[, 2])
 coef_df$Variable &lt;- label_map[rownames(coef_df)]
-coef_df= coef_df[row.names(coef_df) != &quot;reducation_levelUnknown&quot;,]
+coef_df= coef_df[row.names(coef_df) != &quot;education_levelUnknown&quot;,]
 
 ggplot(coef_df[-1, ], aes(x = reorder(Variable, OR), y = OR)) +  # remove Intercept
   geom_point() +

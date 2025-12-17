@@ -576,6 +576,31 @@ Create `test.xlsx` file
 write.xlsx(test_dataframe, "test.xlsx")
 ```
 
+## Set references
+
+```{r}
+filtered$outcome <- relevel(factor(filtered$outcome), ref="1")
+filtered$age_groups <- relevel(factor(filtered$age_groups), ref = "60-69")
+filtered$CS_SEXO <- relevel(factor(filtered$CS_SEXO), ref = "F")
+filtered$nominal_race <- relevel(factor(filtered$nominal_race), ref="White")
+filtered$nominal_icu_admission <- factor(filtered$nominal_icu_admission)
+filtered$nominal_invasive_support_ven <- factor(filtered$nominal_invasive_support_ven)
+filtered$educational_attainment <- relevel(factor(filtered$educational_attainment), ref="bachelor")
+filtered$nominal_education <- relevel(factor(filtered$nominal_education), ref = "Bachelors")
+filtered$education_level <- relevel(factor(filtered$education_level), ref = "High")
+filtered$at_least_one_risk <- factor(filtered$at_least_one_risk)
+filtered$risk_groups <- relevel(factor(filtered$risk_groups), ref="None")
+filtered$categorical_doses <- relevel(factor(filtered$categorical_doses), ref="unvaccinated")
+filtered$factor_doses <- relevel(factor(filtered$doses), ref=1)
+filtered$nominal_vaccinal_schema <- relevel(factor(filtered$nominal_vaccinal_schema), ref="None")
+filtered$nominal_covid_treatment <- relevel(factor(filtered$nominal_covid_treatment), ref="No")
+filtered$education_level <- relevel(factor(filtered$education_level), ref = "High")
+filtered$ndoses <- relevel(factor(filtered$doses), ref = "0")
+filtered$last_year <- relevel(factor(filtered$last_year), ref = "2021")
+```
+
+
+
 ## Population characterization
 
 In total, `r nrow(filtered)` immunocompromised older adults hospitalized for COVID-19 in Brazil during the 2024 epidemiologic year were included in the analysis.
@@ -785,8 +810,6 @@ chisq.test(filtered$age_groups, filtered$EVOLUCAO)
 #### Raw Odds Ratio
 
 ```{r}
-filtered$age_groups <- relevel(factor(filtered$age_groups), ref = "60-69")
-
 m_raw <- glm(outcome ~ age_groups,
                data = filtered,
                family = binomial)
@@ -801,8 +824,6 @@ OR_raw
 ```
 
 ```{r}
-filtered$age_groups <- relevel(factor(filtered$age_groups), ref = "60-69")
-
 m_raw <- glm(outcome ~ NU_IDADE_N,
                data = filtered,
                family = binomial)
@@ -832,8 +853,6 @@ chisq.test(filtered$CS_SEXO, filtered$EVOLUCAO)
 #### Raw Odds Ratio
 
 ```{r}
-filtered$CS_SEXO <- relevel(factor(filtered$CS_SEXO), ref = "F")
-
 m_raw <- glm(outcome ~ CS_SEXO,
                data = filtered,
                family = binomial)
@@ -864,8 +883,6 @@ fisher.test(filtered$nominal_race, filtered$EVOLUCAO)
 #### Raw Odds Ratio
 
 ```{r}
-filtered$nominal_race <- relevel(factor(filtered$nominal_race), ref = "White")
-
 m_raw <- glm(outcome ~ nominal_race,
                data = filtered,
                family = binomial)
@@ -895,8 +912,6 @@ chisq.test(filtered$nominal_education, filtered$EVOLUCAO)
 #### Raw Odds Ratio
 
 ```{r}
-filtered$nominal_education <- relevel(factor(filtered$nominal_education), ref = "Bachelors")
-
 m_raw <- glm(outcome ~ nominal_education,
                data = filtered,
                family = binomial)
@@ -927,8 +942,6 @@ chisq.test(filtered$education_level, filtered$EVOLUCAO)
 #### Raw Odds Ratio
 
 ```{r}
-filtered$education_level <- relevel(factor(filtered$education_level), ref = "High")
-
 m_raw <- glm(outcome ~ education_level,
                data = filtered,
                family = binomial)
@@ -1063,7 +1076,6 @@ OR_raw
 #### Raw Odds Ratio
 
 ```{r}
-filtered$ndoses <- relevel(factor(filtered$doses), ref = "0")
 
 m_raw <- glm(outcome ~ ndoses,
                data = filtered,
@@ -1126,8 +1138,6 @@ fisher.test(filtered$last_year, filtered$nominal_outcome)
 ```
 
 ```{r}
-filtered$last_year <- relevel(factor(filtered$last_year), ref = "2021")
-
 m_raw <- glm(outcome ~ last_year,
                data = filtered,
                family = binomial)
@@ -1172,25 +1182,6 @@ OR_raw
 ```
 
 
-## Final multivariate logistic regression model
-
-```{r}
-filtered$outcome <- relevel(factor(filtered$outcome), ref="1")
-filtered$age_groups <- factor(filtered$age_groups)
-filtered$CS_SEXO <- factor(filtered$CS_SEXO)
-filtered$nominal_race <- relevel(factor(filtered$nominal_race), ref="White")
-filtered$nominal_icu_admission <- factor(filtered$nominal_icu_admission)
-filtered$nominal_invasive_support_ven <- factor(filtered$nominal_invasive_support_ven)
-filtered$educational_attainment <- relevel(factor(filtered$educational_attainment), ref="bachelor")
-filtered$nominal_education <- factor(filtered$nominal_education)
-filtered$at_least_one_risk <- factor(filtered$at_least_one_risk)
-filtered$risk_groups <- relevel(factor(filtered$risk_groups), ref="None")
-filtered$categorical_doses <- relevel(factor(filtered$categorical_doses), ref="unvaccinated")
-filtered$factor_doses <- relevel(factor(filtered$doses), ref=1)
-filtered$nominal_vaccinal_schema <- relevel(factor(filtered$nominal_vaccinal_schema), ref="None")
-filtered$nominal_covid_treatment <- relevel(factor(filtered$nominal_covid_treatment), ref="No")
-
-```
 
 ## Time betwwen vaccination and outcome
 `
@@ -1831,14 +1822,10 @@ Category: variable (Ref: value): groups...
 #### Logistic Regression
 
 ```{r}
-filtered$rcategorical_doses <- relevel(factor(filtered$categorical_doses), ref = "unvaccinated")
-filtered$reducation_level <- relevel(factor(filtered$education_level), ref = "High")
-
-
 model <- glm(outcome ~ NU_IDADE_N + CS_SEXO +
-               reducation_level +
+               education_level +
                nominal_icu_admission + 
-               nominal_invasive_support_ven + rcategorical_doses,
+               nominal_invasive_support_ven + categorical_doses,
                family = binomial,
                data = filtered)
 
@@ -1873,14 +1860,14 @@ No multicollinearity detected.
 label_map <- c(
   "NU_IDADE_N" = "Age",
   "CS_SEXOM" = "Male",
-  "reducation_levelElementary" = "Elementary Education",
-  "reducation_levelMiddle" = "Middle Education",
-  "reducation_levelUnknown" = "Unknown Education",
+  "education_levelElementary" = "Elementary Education",
+  "education_levelMiddle" = "Middle Education",
+  "education_levelUnknown" = "Unknown Education",
   "nominal_icu_admissionYes" = "ICU Admission",
   "nominal_invasive_support_venYes" = "Invasive Ventilation",
-  "rcategorical_doses1-2" = "1-2 Doses",
-  "rcategorical_doses3" = "3 Doses",
-  "rcategorical_doses4+" = "4+ Doses"
+  "categorical_doses1-2" = "1-2 Doses",
+  "categorical_doses3" = "3 Doses",
+  "categorical_doses4+" = "4+ Doses"
 )
 
 
@@ -1890,7 +1877,7 @@ coef_df$OR <- exp(coef_df$Estimate)
 coef_df$LowerCI <- exp(coef_df[, 1])
 coef_df$UpperCI <- exp(coef_df[, 2])
 coef_df$Variable <- label_map[rownames(coef_df)]
-coef_df= coef_df[row.names(coef_df) != "reducation_levelUnknown",]
+coef_df= coef_df[row.names(coef_df) != "education_levelUnknown",]
 
 ggplot(coef_df[-1, ], aes(x = reorder(Variable, OR), y = OR)) +  # remove Intercept
   geom_point() +
