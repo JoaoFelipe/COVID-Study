@@ -731,14 +731,18 @@ m_raw <- glm(outcome ~ SEM_PRI,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "SEM_PRI" = "Epidemiologic week of the onset of first COVID-19 symptoms"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+epi_week_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
-
 
 ### Days from onset of first symptoms
 
@@ -785,14 +789,18 @@ m_raw <- glm(outcome ~ delta_days,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "delta_days" = "Days from onset of first COVID-19 symptoms to hospitalization"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+delta_days_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
-
 
 ### Age group, years, n
 
@@ -815,12 +823,18 @@ m_raw <- glm(outcome ~ age_groups,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "age_groups70-79" = "Age group: 70-79",
+  "age_groups80+" = "Age group: 80+"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+age_groups_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
 
 ```{r}
@@ -829,12 +843,17 @@ m_raw <- glm(outcome ~ NU_IDADE_N,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "NU_IDADE_N" = "Age (number)"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+age_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
 
 ### Gender, n
@@ -858,12 +877,17 @@ m_raw <- glm(outcome ~ CS_SEXO,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "CS_SEXOM" = "Male"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+gender_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
 
 
@@ -888,12 +912,20 @@ m_raw <- glm(outcome ~ nominal_race,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "nominal_raceBlack" = "Race: Black",
+  "nominal_raceBrown" = "Race: Brown",
+  "nominal_raceYellow" = "Race: Yellow",
+  "nominal_raceUnknown" = "Race: Unknown"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+race_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
 
 ### Educational attainment, n
@@ -917,14 +949,21 @@ m_raw <- glm(outcome ~ nominal_education,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "nominal_educationElementary" = "Education: Elementary (Ref: Bachelors)",
+  "nominal_educationHighschool" = "Education: High School (Ref: Bachelors)",
+  "nominal_educationMiddle" = "Education: Middle School (Ref:Bachelors)",
+  "nominal_educationUnknown" = "Education: Unknown (Ref:Bachelors)"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+nominal_education_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
-
 ### Educational level, n
 
 #### Description
@@ -947,12 +986,19 @@ m_raw <- glm(outcome ~ education_level,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "education_levelElementary" = "Education: Elementary (Ref: High school or Higher)",
+  "education_levelMiddle" = "Education: Middle (Ref: High school or Higher)",
+  "education_levelUnknown" = "Education: Unknown (Ref: High school or Higher)"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+education_level_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
 
 ### Other underlying risk conditions, n
@@ -976,12 +1022,17 @@ m_raw <- glm(outcome ~ at_least_one_risk,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "at_least_one_risk1" = "Other underlying risk conditions"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+at_least_one_risk_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
 
 ### Intensive care unit admission, n
@@ -1005,12 +1056,17 @@ m_raw <- glm(outcome ~ nominal_icu_admission,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "nominal_icu_admissionYes" = "Intensive care unit admission"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+nominal_icu_admission_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
 
 
@@ -1029,18 +1085,24 @@ chisq.test(filtered$nominal_invasive_support_ven, filtered$EVOLUCAO)
 ```
 #### Raw Odds Ratio
 
+
 ```{r}
 m_raw <- glm(outcome ~ nominal_invasive_support_ven,
                data = filtered,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "nominal_invasive_support_venYes" = "Invasive ventilatory support"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+nominal_invasive_support_ven_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
 
 ### COVID-19 vaccine doses, n
@@ -1059,35 +1121,46 @@ CochranArmitageTest(table(filtered$nominal_outcome, filtered$doses), alternative
 #### Raw Odds Ratio
 
 ```{r}
-
 m_raw <- glm(outcome ~ doses,
                data = filtered,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "doses" = "Doses (number)"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+doses_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
 
-#### Raw Odds Ratio
 
 ```{r}
-
 m_raw <- glm(outcome ~ ndoses,
                data = filtered,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "ndoses1" = "1 Dose (Ref: Unvaccinated)",
+  "ndoses2" = "2 Doses (Ref: Unvaccinated)",
+  "ndoses3" = "3 Doses (Ref: Unvaccinated)",
+  "ndoses4" = "4 Doses (Ref: Unvaccinated)",
+  "ndoses5" = "5 Doses (Ref: Unvaccinated)"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+ndoses_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
 
 
@@ -1107,21 +1180,29 @@ fisher.test(filtered$nominal_vaccinal_schema, filtered$nominal_outcome, workspac
 #### Raw Odds Ratio
 
 ```{r}
-filtered$nominal_vaccinal_schema <- relevel(factor(filtered$nominal_vaccinal_schema), ref = "None")
-
 m_raw <- glm(outcome ~ nominal_vaccinal_schema,
                data = filtered,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "nominal_vaccinal_schemaInactivated + mRNA" = "Inactivated + mRNA vaccines (Ref: Unvaccinated)",
+  "nominal_vaccinal_schemaInactivated + mRNA + viral vector" = "Inactivated + mRNA + viral vector (Ref: Unvaccinated)",
+  "nominal_vaccinal_schemaInactivated + Viral vector" = "Inactivated + viral vector vaccines (Ref: Unvaccinated)",
+  "nominal_vaccinal_schemaInactivated only" = "Inactivated vaccine only (Ref: Unvaccinated)",
+  "nominal_vaccinal_schemamRNA + viral vector" = "mRNA + viral vector vaccines (Ref: Unvaccinated)",
+  "nominal_vaccinal_schemamRNA only" = "mRNA vaccine only (Ref: Unvaccinated)",
+  "nominal_vaccinal_schemaViral vector only" = "Viral vector vaccine only (Ref: Unvaccinated)"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+nominal_vaccinal_schema_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
-
 
 ### Year of last COVID-19 vaccine dose, n
 
@@ -1143,12 +1224,18 @@ m_raw <- glm(outcome ~ last_year,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "last_year2022" = "Year of last COVID-19 vaccine dose: 2022 (Ref: 2021)",
+  "last_year2023" = "Year of last COVID-19 vaccine dose: 2023 (Ref: 2021)"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+last_year_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
 
 ### COVID-19 specific treatment, n
@@ -1167,21 +1254,52 @@ chisq.test(filtered$nominal_covid_treatment, filtered$nominal_outcome)
 #### Raw Odds Ratio
 
 ```{r}
-
 m_raw <- glm(outcome ~ nominal_covid_treatment,
                data = filtered,
                family = binomial)
 
 # OR bruto + IC95%
-OR_raw <- exp(cbind(
-  OR = coef(m_raw),
-  confint(m_raw)
-))
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "nominal_covid_treatmentYes" = "COVID-19 specific treatment"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+nominal_covid_treatment_OR_raw = OR_raw[-1, ]
 OR_raw
-
 ```
 
 
+## Raw OR Forest Plot
+
+
+```{r}
+coef_df <- rbind(
+  epi_week_OR_raw, delta_days_OR_raw, age_OR_raw, age_groups_OR_raw,
+  gender_OR_raw, race_OR_raw, education_level_OR_raw, # nominal_education_OR_raw,
+  at_least_one_risk_OR_raw, nominal_icu_admission_OR_raw,
+  nominal_invasive_support_ven_OR_raw, doses_OR_raw, ndoses_OR_raw,
+  nominal_vaccinal_schema_OR_raw, last_year_OR_raw,
+  nominal_covid_treatment_OR_raw
+)
+coef_df$Variable <- factor(coef_df$Variable, levels=rev(coef_df$Variable))
+
+p = ggplot(coef_df, aes(x = Variable, y = OR)) +  # remove Intercept
+  geom_point() +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI), width = 0.2) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  coord_flip() +
+  labs(#title = "Forest Plot of Logistic Regression",
+       x = "Variables",
+       y = "Raw Odds Ratio (95% CI)") +
+  theme_minimal()
+
+ggsave("raw_forest_plot.pdf", p, width = 8, height = 11)
+p
+```
 
 ## Time betwwen vaccination and outcome
 `
@@ -1253,7 +1371,121 @@ filtered %>%
 
 ```
 
+## Model
+
 ### Main Version - Variables from paper
+
+Category: variable (Ref: value): groups...
+
+-   Age: covariate NU_IDADE_N
+-   Gender: CS_SEXO (Ref: F): M
+-   Educational Attainment: education_level (Ref: Elementary): Middle, High, Unknown
+-   ICU: nominal_icu_admission (Ref: No): Yes
+-   Invasive Support Ven: nominal_invasive_support_ven (Ref: No): Yes
+-   Doses: categorical_doses (Ref: unvaccinated): 1-2, 3, 4+
+
+#### Logistic Regression
+
+```{r}
+model <- glm(outcome ~ NU_IDADE_N + CS_SEXO +
+               education_level +
+               nominal_icu_admission + 
+               nominal_invasive_support_ven + categorical_doses,
+               family = binomial,
+               data = filtered)
+
+summary_model <- summary(model)
+print(summary_model)
+```
+
+```{r}
+odds_ratios <- exp(coef(model))
+conf_int <- exp(confint(model))
+data.frame(
+  variable = names(coef(model)),
+  OR = round(odds_ratios, 2),
+  IC_95_inf = round(conf_int[,1], 2),
+  IC_95_sup = round(conf_int[,2], 2),
+  pvalue = round(summary_model$coefficients[,4], 3)
+)
+```
+
+#### Variance inflation factor
+
+```{r}
+vif_results <- car::vif(model)
+print(vif_results)
+```
+
+No multicollinearity detected.
+
+#### Forest Plot
+
+```{r}
+label_map <- c(
+  "NU_IDADE_N" = "Age",
+  "CS_SEXOM" = "Male",
+  "education_levelElementary" = "Elementary Education",
+  "education_levelMiddle" = "Middle Education",
+  "education_levelUnknown" = "Unknown Education",
+  "nominal_icu_admissionYes" = "ICU Admission",
+  "nominal_invasive_support_venYes" = "Invasive Ventilation",
+  "categorical_doses1-2" = "1-2 Doses",
+  "categorical_doses3" = "3 Doses",
+  "categorical_doses4+" = "4+ Doses"
+)
+
+
+coef_df <- as.data.frame(confint(model))  # 95% CI
+coef_df$Estimate <- coef(model)
+coef_df$OR <- exp(coef_df$Estimate)
+coef_df$LowerCI <- exp(coef_df[, 1])
+coef_df$UpperCI <- exp(coef_df[, 2])
+coef_df$Variable <- label_map[rownames(coef_df)]
+coef_df= coef_df[row.names(coef_df) != "education_levelUnknown",]
+
+p = ggplot(coef_df[-1, ], aes(x = reorder(Variable, OR), y = OR)) +  # remove Intercept
+  geom_point() +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI), width = 0.2) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  coord_flip() +
+  labs(title = "Forest Plot of Logistic Regression",
+       x = "Variables",
+       y = "Odds Ratio (95% CI)") +
+  theme_minimal()
+
+ggsave("forest_plot.pdf", p, width = 8, height = nrow(coef_df) * 0.4)
+p
+```
+
+#### Hosmer-Lemeshow Test
+
+```{r}
+hl_test <- hoslem.test(model$y, fitted(model), g = 10)
+print(hl_test)
+```
+
+p-value \> 0.05 -\> no evidence of poor fit
+
+#### ROC and AUC
+
+```{r}
+roc_obj <- roc(response = filtered$outcome,
+               predictor = predict(model, type = "response"))
+auc(roc_obj)
+ci.auc(roc_obj)
+```
+
+AUC between 0.7 and 0.8: acceptable ability to discriminate between classes Entire confidence interval above 0.5: model performs better than random
+
+```{r}
+plot(roc_obj, main = "ROC Curve")
+```
+
+
+## Alternative versions
+
+### Alternative A - Main version, but splits high education level into Highschool and Bachelors
 
 Category: variable (Ref: value): groups...
 
@@ -1360,9 +1592,8 @@ AUC between 0.7 and 0.8: acceptable ability to discriminate between classes Enti
 plot(roc_obj, main = "ROC Curve")
 ```
 
-## Alternative versions
 
-### Alternative A - Using groups from bivariate analyses
+### Alternative B - Alternative A, but using groups from bivariate analyses
 
 Category: variable (Ref: <reference>): groups...
 
@@ -1472,7 +1703,7 @@ AUC between 0.7 and 0.8: acceptable ability to discriminate between classes Enti
 plot(roc_obj, main = "ROC Curve")
 ```
 
-### Alternative B - Alternative A, but age and doses are covariates
+### Alternative C - Alternative B, but age and doses are covariates
 
 Category: variable (Ref: <reference>): groups...
 
@@ -1577,7 +1808,7 @@ AUC between 0.7 and 0.8: acceptable ability to discriminate between classes Enti
 plot(roc_obj, main = "ROC Curve")
 ```
 
-### Alternative C - Alternative B, but it includes all categories from bivariate analyses
+### Alternative D - Alternative C, but it includes all categories from bivariate analyses
 
 Category: variable (Ref: <reference>): groups...
 
@@ -1700,7 +1931,7 @@ print(hl_test)
 
 p-value \> 0.05 -\> no evidence of poor fit
 
-### Alternative D - Alternative B, but doses and are are categorical
+### Alternative E - Alternative C, but doses and are are categorical
 
 Category: variable (Ref: <reference>): groups...
 
@@ -1772,112 +2003,6 @@ coef_df$LowerCI <- exp(coef_df[, 1])
 coef_df$UpperCI <- exp(coef_df[, 2])
 coef_df$Variable <- label_map[rownames(coef_df)]
 coef_df= coef_df[row.names(coef_df) != "educational_attainmentunknown",]
-
-ggplot(coef_df[-1, ], aes(x = reorder(Variable, OR), y = OR)) +  # remove Intercept
-  geom_point() +
-  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI), width = 0.2) +
-  geom_hline(yintercept = 1, linetype = "dashed") +
-  coord_flip() +
-  labs(title = "Forest Plot of Logistic Regression",
-       x = "Variables",
-       y = "Odds Ratio (95% CI)") +
-  theme_minimal()
-```
-
-#### Hosmer-Lemeshow Test
-
-```{r}
-hl_test <- hoslem.test(model$y, fitted(model), g = 10)
-print(hl_test)
-```
-
-p-value \> 0.05 -\> no evidence of poor fit
-
-#### ROC and AUC
-
-```{r}
-roc_obj <- roc(response = filtered$outcome,
-               predictor = predict(model, type = "response"))
-auc(roc_obj)
-ci.auc(roc_obj)
-```
-
-AUC between 0.7 and 0.8: acceptable ability to discriminate between classes Entire confidence interval above 0.5: model performs better than random
-
-```{r}
-plot(roc_obj, main = "ROC Curve")
-```
-
-### Alternative E - Main version, but reduces education level group
-
-Category: variable (Ref: value): groups...
-
--   Age: covariate NU_IDADE_N
--   Gender: CS_SEXO (Ref: F): M
--   Educational Attainment: education_level (Ref: Elementary): Middle, High, Unknown
--   ICU: nominal_icu_admission (Ref: No): Yes
--   Invasive Support Ven: nominal_invasive_support_ven (Ref: No): Yes
--   Doses: categorical_doses (Ref: unvaccinated): 1-2, 3, 4+
-
-#### Logistic Regression
-
-```{r}
-model <- glm(outcome ~ NU_IDADE_N + CS_SEXO +
-               education_level +
-               nominal_icu_admission + 
-               nominal_invasive_support_ven + categorical_doses,
-               family = binomial,
-               data = filtered)
-
-summary_model <- summary(model)
-print(summary_model)
-```
-
-```{r}
-odds_ratios <- exp(coef(model))
-conf_int <- exp(confint(model))
-data.frame(
-  variable = names(coef(model)),
-  OR = round(odds_ratios, 2),
-  IC_95_inf = round(conf_int[,1], 2),
-  IC_95_sup = round(conf_int[,2], 2),
-  pvalue = round(summary_model$coefficients[,4], 3)
-)
-```
-
-#### Variance inflation factor
-
-```{r}
-vif_results <- car::vif(model)
-print(vif_results)
-```
-
-No multicollinearity detected.
-
-#### Forest Plot
-
-```{r}
-label_map <- c(
-  "NU_IDADE_N" = "Age",
-  "CS_SEXOM" = "Male",
-  "education_levelElementary" = "Elementary Education",
-  "education_levelMiddle" = "Middle Education",
-  "education_levelUnknown" = "Unknown Education",
-  "nominal_icu_admissionYes" = "ICU Admission",
-  "nominal_invasive_support_venYes" = "Invasive Ventilation",
-  "categorical_doses1-2" = "1-2 Doses",
-  "categorical_doses3" = "3 Doses",
-  "categorical_doses4+" = "4+ Doses"
-)
-
-
-coef_df <- as.data.frame(confint(model))  # 95% CI
-coef_df$Estimate <- coef(model)
-coef_df$OR <- exp(coef_df$Estimate)
-coef_df$LowerCI <- exp(coef_df[, 1])
-coef_df$UpperCI <- exp(coef_df[, 2])
-coef_df$Variable <- label_map[rownames(coef_df)]
-coef_df= coef_df[row.names(coef_df) != "education_levelUnknown",]
 
 ggplot(coef_df[-1, ], aes(x = reorder(Variable, OR), y = OR)) +  # remove Intercept
   geom_point() +
