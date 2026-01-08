@@ -110,24 +110,46 @@ filtered <- filtered %>%
   )
 ```
 
-### Dates of valid vaccines
-
-Vaccines are valid when they have both the date of administration and the manufacturer.
+### Dates of vaccines
 
 ```{r}
 filtered <- filtered %>%
-  mutate(dose_dates = pmap(list(FAB_COV_1, DOSE_1_COV, 
+  mutate(
+    dose_dates = pmap(
+      list(
+        DOSE_1_COV,
+        DOSE_2_COV,
+        DOSE_ADIC,
+        DOSE_REF,
+        DOSE_2REF,
+        DOS_RE_BI
+      ),
+      ~ {
+        doses <- as.Date(c(...))
+        doses[!is.na(doses)]
+      }
+    )
+  )
+```
+
+Column that only consider vaccines that have both the date of administration and the manufacturer.
+
+```{r}
+filtered <- filtered %>%
+  mutate(dose_dates_with_fab = pmap(list(FAB_COV_1, DOSE_1_COV, 
                                FAB_COV_2, DOSE_2_COV, 
                                FAB_ADIC, DOSE_ADIC, 
                                FAB_COVREF, DOSE_REF, 
-                               FAB_COVRF2, DOSE_2REF), 
+                               FAB_COVRF2, DOSE_2REF,
+                               FAB_RE_BI, DOS_RE_BI), 
                            ~ {
                              doses <- c(
                                as.Date(ifelse(!is.na(..1), ..2, NA)),
                                as.Date(ifelse(!is.na(..3), ..4, NA)),
                                as.Date(ifelse(!is.na(..5), ..6, NA)),
                                as.Date(ifelse(!is.na(..7), ..8, NA)),
-                               as.Date(ifelse(!is.na(..9), ..10, NA))
+                               as.Date(ifelse(!is.na(..9), ..10, NA)),
+                               as.Date(ifelse(!is.na(..11), ..12, NA))
                              )
                              doses[!is.na(doses)]
                            })
@@ -142,7 +164,7 @@ filtered <- filtered %>%
   mutate(last_date = map(dose_dates, ~ if (length(.x) == 0) NA else max(.x, na.rm = TRUE)))
 ```
 
-### Days betwwn vaccine date and internation
+### Days between vaccine date and internation
 
 ```{r}
 # Calculate the number of days betwenn the vaccine date and internation
@@ -156,6 +178,31 @@ filtered <- filtered %>%
         #   as.numeric( - ))
 ```
 
+### Intervals between vaccine date and internation
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    last_vaccine_interval = case_when(
+      days_since_last_vaccine <= 183 ~ "up to 6 months",
+      days_since_last_vaccine <= 365 ~ "7–12 months",
+      days_since_last_vaccine > 365  ~ "over 1 year",
+      TRUE ~ NA_character_
+    )
+  )
+```
+
+
+```{r}
+filtered <- filtered %>%
+  mutate(
+    last_vaccine_interval_broader = case_when(
+      days_since_last_vaccine <= 365 ~ "up to 1 year",
+      days_since_last_vaccine > 365  ~ "over 1 year",
+      TRUE ~ NA_character_
+    )
+  )
+```
 
 ### Last vaccine year
 
@@ -260,6 +307,10 @@ stopifnot(
 stopifnot(
   identical(setdiff(unique(replace_na(filtered$FAB_COVRF2, '<vazio>')), mapped_vaccines), character(0))
 )
+stopifnot(
+  identical(setdiff(unique(replace_na(as.character(filtered$FAB_RE_BI), '<vazio>')), mapped_vaccines), character(0))
+)
+
 ```
 
 Create columns with the count of each valid dose given the type.
@@ -272,13 +323,16 @@ filtered <- filtered %>%
            DOSE_2_COV, FAB_COV_2,
            DOSE_ADIC, FAB_ADIC,
            DOSE_REF, FAB_COVREF,
-           DOSE_2REF, FAB_COVRF2),
+           DOSE_2REF, FAB_COVRF2#,
+           # DOS_RE_BI, FAB_RE_BI -- currently, all DOS_RE_BI are mrna vaccines
+           ),
       ~ sum(
           (!is.na(..1) & ..2 %in% innactivated_vaccines),
           (!is.na(..3) & ..4 %in% innactivated_vaccines),
           (!is.na(..5) & ..6 %in% innactivated_vaccines),
           (!is.na(..7) & ..8 %in% innactivated_vaccines),
-          (!is.na(..9) & ..10 %in% innactivated_vaccines)
+          (!is.na(..9) & ..10 %in% innactivated_vaccines)#,
+          #(!is.na(..11) & ..12 %in% innactivated_vaccines)
         )
     ),
     viral_vector_doses = pmap_int(
@@ -286,13 +340,16 @@ filtered <- filtered %>%
            DOSE_2_COV, FAB_COV_2,
            DOSE_ADIC, FAB_ADIC,
            DOSE_REF, FAB_COVREF,
-           DOSE_2REF, FAB_COVRF2),
+           DOSE_2REF, FAB_COVRF2#,
+           #DOS_RE_BI, FAB_RE_BI -- currently, all DOS_RE_BI are mrna vaccines
+           ),
       ~ sum(
           (!is.na(..1) & ..2 %in% viral_vector_vaccines),
           (!is.na(..3) & ..4 %in% viral_vector_vaccines),
           (!is.na(..5) & ..6 %in% viral_vector_vaccines),
           (!is.na(..7) & ..8 %in% viral_vector_vaccines),
-          (!is.na(..9) & ..10 %in% viral_vector_vaccines)
+          (!is.na(..9) & ..10 %in% viral_vector_vaccines)#,
+          #(!is.na(..11) & ..12 %in% viral_vector_vaccines)
         )
     ),
     mrna_doses = pmap_int(
@@ -300,13 +357,15 @@ filtered <- filtered %>%
            DOSE_2_COV, FAB_COV_2,
            DOSE_ADIC, FAB_ADIC,
            DOSE_REF, FAB_COVREF,
-           DOSE_2REF, FAB_COVRF2),
+           DOSE_2REF, FAB_COVRF2,
+           DOS_RE_BI, FAB_RE_BI),
       ~ sum(
           (!is.na(..1) & ..2 %in% mrna_vaccines),
           (!is.na(..3) & ..4 %in% mrna_vaccines),
           (!is.na(..5) & ..6 %in% mrna_vaccines),
           (!is.na(..7) & ..8 %in% mrna_vaccines),
-          (!is.na(..9) & ..10 %in% mrna_vaccines)
+          (!is.na(..9) & ..10 %in% mrna_vaccines),
+          (!is.na(..11)) # & ..12 %in% mrna_vaccines -- all DOS_RE_BI are MRNA vaccines. It does not need to check the FAB
         )
     )
   )
@@ -479,7 +538,8 @@ filtered <- filtered %>%
 filtered <- filtered %>%
   mutate(
     categorical_doses = case_when(
-      doses >= 4 ~ '4+',
+      doses >= 5 ~ '5+',
+      doses == 4 ~ '4',
       doses == 3 ~ '3',
       doses >= 1 ~ '1-2',
       TRUE ~ 'unvaccinated'
@@ -548,7 +608,7 @@ test_dataframe <- filtered %>%
     `Age group: 60-69 years = 1; 70-79 years =2; 80 years or older = 3` = recode(age_groups, `60-69` = 1, `70-79` = 2, `80+` = 3),
     `Educational attainment: low (up to high school); high (Bachelor) = 2; unknown = 9` = recode(educational_attainment, `low` = 1, `bachelor` = 2, `unknown` = 9),
     `Number of other risk conditions: none = 0; one or more = 1` = if_else(additional_risk_comorbidities >= 1, 1, 0),
-    `COVID-19 vaccine doses: Unvaccinated = 0; one to two doses = 1; 3 doses = 2; 4 or more doses = 3` = recode(categorical_doses, `unvaccinated` = 0, `1-2` = 1, `3` = 2, `4+` = 3),
+    `COVID-19 vaccine doses: Unvaccinated = 0; one to two doses = 1; 3 doses = 2; 4 or more doses = 3` = recode(categorical_doses, `unvaccinated` = 0, `1-2` = 1, `3` = 2, `4` = 3, `5+` = 4),
     ` ` = NA_real_, 
     `Esquemas de vacinação: unvaccinated or single-dose (reference): 1; sequential with inactivated only: 2; sequential excluding inactivated: 3; sequential with inactivated and others: 4` = recode(vaccinal_schema_based_on_innactivated, 
                                                                                                                                           `unvaccinated or single-dose` = 1,
@@ -597,6 +657,8 @@ filtered$nominal_covid_treatment <- relevel(factor(filtered$nominal_covid_treatm
 filtered$education_level <- relevel(factor(filtered$education_level), ref = "High")
 filtered$ndoses <- relevel(factor(filtered$doses), ref = "0")
 filtered$last_year <- relevel(factor(filtered$last_year), ref = "2021")
+filtered$last_vaccine_interval <- relevel(factor(filtered$last_vaccine_interval), ref = "over 1 year")
+filtered$last_vaccine_interval_broader <- relevel(factor(filtered$last_vaccine_interval_broader), ref = "over 1 year")
 ```
 
 
@@ -670,6 +732,17 @@ describe.factor(filtered$viral_vector_doses >= 1)
 ```{r}
 describe.factor(filtered$mrna_doses >= 1)
 ```
+
+### Vaccine interval
+
+```{r}
+describe.factor(filtered$last_vaccine_interval)
+```
+
+```{r}
+describe.factor(filtered$last_vaccine_interval_broader)
+```
+
 
 ### Outcome
 
@@ -1118,6 +1191,7 @@ table(filtered$doses, filtered$nominal_outcome)
 ```{r}
 CochranArmitageTest(table(filtered$nominal_outcome, filtered$doses), alternative="one.sided")
 ```
+
 #### Raw Odds Ratio
 
 ```{r}
@@ -1156,7 +1230,8 @@ label_map <- c(
   "ndoses2" = "2 Doses (Ref: Unvaccinated)",
   "ndoses3" = "3 Doses (Ref: Unvaccinated)",
   "ndoses4" = "4 Doses (Ref: Unvaccinated)",
-  "ndoses5" = "5 Doses (Ref: Unvaccinated)"
+  "ndoses5" = "5 Doses (Ref: Unvaccinated)",
+  "ndoses6" = "6 Doses (Ref: Unvaccinated)"
 )
 OR_raw$Variable <- label_map[rownames(OR_raw)]
 ndoses_OR_raw = OR_raw[-1, ]
@@ -1204,6 +1279,74 @@ nominal_vaccinal_schema_OR_raw = OR_raw[-1, ]
 OR_raw
 ```
 
+### Interval since last COVID-19 vaccine dose, n
+
+#### Description
+
+```{r}
+table(filtered$last_vaccine_interval, filtered$nominal_outcome)
+```
+##### Broader:
+
+
+```{r}
+table(filtered$last_vaccine_interval_broader, filtered$nominal_outcome)
+```
+
+
+#### Analysis
+
+```{r}
+fisher.test(filtered$last_vaccine_interval, filtered$nominal_outcome)
+```
+```{r}
+m_raw <- glm(outcome ~ last_vaccine_interval,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "last_vaccine_intervalup to 6 months" = "Last vaccine interval: ≤ 6 months (Ref: > 1 year)",
+  "last_vaccine_interval7–12 months" = "Last vaccine interval: 7-12 months (Ref: > 1 year)"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+last_vaccine_interval_OR_raw = OR_raw[-1, ]
+OR_raw
+```
+
+##### Broader:
+
+```{r}
+fisher.test(filtered$last_vaccine_interval_broader, filtered$nominal_outcome)
+```
+
+```{r}
+m_raw <- glm(outcome ~ last_vaccine_interval_broader,
+               data = filtered,
+               family = binomial)
+
+# OR bruto + IC95%
+OR_raw <- as.data.frame(confint(m_raw))
+OR_raw$Estimate <- coef(m_raw)
+OR_raw$OR <- exp(OR_raw$Estimate)
+OR_raw$LowerCI <- exp(OR_raw[, 1])
+OR_raw$UpperCI <- exp(OR_raw[, 2])
+label_map <- c(
+  "last_vaccine_interval_broaderup to 1 year" = "Last vaccine interval: ≤ 1 year (Ref: > 1 year)"
+)
+OR_raw$Variable <- label_map[rownames(OR_raw)]
+last_vaccine_interval_broader_OR_raw = OR_raw[-1, ]
+OR_raw
+```
+
+
+
+
 ### Year of last COVID-19 vaccine dose, n
 
 #### Description
@@ -1231,7 +1374,8 @@ OR_raw$LowerCI <- exp(OR_raw[, 1])
 OR_raw$UpperCI <- exp(OR_raw[, 2])
 label_map <- c(
   "last_year2022" = "Year of last COVID-19 vaccine dose: 2022 (Ref: 2021)",
-  "last_year2023" = "Year of last COVID-19 vaccine dose: 2023 (Ref: 2021)"
+  "last_year2023" = "Year of last COVID-19 vaccine dose: 2023 (Ref: 2021)",
+  "last_year2024" = "Year of last COVID-19 vaccine dose: 2024 (Ref: 2021)"
 )
 OR_raw$Variable <- label_map[rownames(OR_raw)]
 last_year_OR_raw = OR_raw[-1, ]
@@ -1382,7 +1526,7 @@ Category: variable (Ref: value): groups...
 -   Educational Attainment: education_level (Ref: Elementary): Middle, High, Unknown
 -   ICU: nominal_icu_admission (Ref: No): Yes
 -   Invasive Support Ven: nominal_invasive_support_ven (Ref: No): Yes
--   Doses: categorical_doses (Ref: unvaccinated): 1-2, 3, 4+
+-   Doses: categorical_doses (Ref: unvaccinated): 1-2, 3, 4, 5+
 
 #### Logistic Regression
 
@@ -1432,7 +1576,8 @@ label_map <- c(
   "nominal_invasive_support_venYes" = "Invasive Ventilation",
   "categorical_doses1-2" = "1-2 Doses",
   "categorical_doses3" = "3 Doses",
-  "categorical_doses4+" = "4+ Doses"
+  "categorical_doses4" = "4 Doses",
+  "categorical_doses5+" = "5+ Doses"
 )
 
 
@@ -1494,7 +1639,7 @@ Category: variable (Ref: value): groups...
 -   Educational Attainment: nominal_education (Ref: Bachelor): Elementary, Middle, Highschool, Unknown
 -   ICU: nominal_icu_admission (Ref: No): Yes
 -   Invasive Support Ven: nominal_invasive_support_ven (Ref: No): Yes
--   Doses: categorical_doses (Ref: unvaccinated): 1-2, 3, 4+
+-   Doses: categorical_doses (Ref: unvaccinated): 1-2, 3, 4, 5+
 
 #### Logistic Regression
 
@@ -1545,7 +1690,8 @@ label_map <- c(
   "nominal_invasive_support_venYes" = "Invasive Ventilation",
   "categorical_doses1-2" = "1-2 Doses",
   "categorical_doses3" = "3 Doses",
-  "categorical_doses4+" = "4+ Doses"
+  "categorical_doses4" = "4 Doses",
+  "categorical_doses5+" = "5+ Doses"
 )
 
 
@@ -1939,7 +2085,7 @@ Category: variable (Ref: <reference>): groups...
 -   ICU: nominal_icu_admission (Ref: No): Yes
 -   Invasive Support Ven: nominal_invasive_support_ven (Ref: No): Yes
 -   Gender: CS_SEXO (Ref: F): M
--   Doses: categorical_doses (Ref: unvaccinated): 1-2, 3, 4+
+-   Doses: categorical_doses (Ref: unvaccinated): 1-2, 3, 4, 5+
 -   Educational Attainment: educational_attainment (Ref: bachelor): low, unknown
 
 #### Logistic Regression
@@ -1992,7 +2138,8 @@ label_map <- c(
   "nominal_invasive_support_venYes" = "Invasive Ventilation",
   "categorical_doses1-2" = "1-2 Doses",
   "categorical_doses3" = "3 Doses",
-  "categorical_doses4+" = "4+ Doses"
+  "categorical_doses4" = "4 Doses",
+  "categorical_doses5+" = "5+ Doses"
 )
 
 
