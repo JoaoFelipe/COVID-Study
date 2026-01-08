@@ -1,5 +1,5 @@
 ---
-title: "COVID-19 Vaccination and In-Hospital Mortality Among Immunocompromised Older Adults: A Population-Based Study From Brazil, 2024"
+title: "COVID-19 vaccination and in-hospital COVID-19–related mortality among immunocompromised older adults: A population-based study from Brazil, 2024"
 output:
   html_document:
     df_print: paged
