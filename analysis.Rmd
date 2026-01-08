@@ -1239,6 +1239,13 @@ OR_raw
 ```
 
 
+#### Categorical
+
+```{r}
+table(filtered$categorical_doses, filtered$nominal_outcome)
+```
+
+
 ### COVID-19 vaccine types, n
 
 #### Description
@@ -1630,7 +1637,137 @@ plot(roc_obj, main = "ROC Curve")
 
 ## Alternative versions
 
-### Alternative A - Main version, but splits high education level into Highschool and Bachelors
+### Alternative A - Main version, but it considers the interval since last vaccine
+
+
+Category: variable (Ref: value): groups...
+
+-   Age: covariate NU_IDADE_N
+-   Gender: CS_SEXO (Ref: F): M
+-   Educational Attainment: education_level (Ref: Elementary): Middle, High, Unknown
+-   ICU: nominal_icu_admission (Ref: No): Yes
+-   Invasive Support Ven: nominal_invasive_support_ven (Ref: No): Yes
+-   Doses: categorical_doses (Ref: unvaccinated): 1-2, 3, 4, 5+
+-   Interval: last_vaccine_interval_broader (Ref: >= 1 year): < 1 year
+
+#### Logistic Regression
+
+```{r}
+model <- glm(outcome ~ NU_IDADE_N + CS_SEXO +
+               education_level +
+               nominal_icu_admission + 
+               nominal_invasive_support_ven +
+               categorical_doses +
+               last_vaccine_interval_broader,
+               family = binomial,
+               data = filtered)
+
+summary_model <- summary(model)
+print(summary_model)
+```
+```{r}
+xtabs(~ categorical_doses + last_vaccine_interval_broader, data = filtered)
+```
+
+
+```{r}
+odds_ratios <- exp(coef(model))
+conf_int <- exp(confint(model))
+data.frame(
+  variable = names(coef(model)),
+  OR = round(odds_ratios, 2),
+  IC_95_inf = round(conf_int[,1], 2),
+  IC_95_sup = round(conf_int[,2], 2),
+  pvalue = round(summary_model$coefficients[,4], 3)
+)
+```
+
+#### Variance inflation factor
+
+```{r}
+vif_results <- car::vif(model)
+print(vif_results)
+```
+
+No multicollinearity detected.
+
+#### Forest Plot
+
+```{r}
+label_map <- c(
+  "NU_IDADE_N" = "Age",
+  "CS_SEXOM" = "Male",
+  "education_levelElementary" = "Elementary Education",
+  "education_levelMiddle" = "Middle Education",
+  "education_levelUnknown" = "Unknown Education",
+  "nominal_icu_admissionYes" = "ICU Admission",
+  "nominal_invasive_support_venYes" = "Invasive Ventilation",
+  "categorical_doses1-2" = "1-2 Doses",
+  "categorical_doses3" = "3 Doses",
+  "categorical_doses4" = "4 Doses",
+  "categorical_doses5+" = "5+ Doses",
+  "last_vaccine_interval_broaderup to 1 year" = "Less than 1 year since last"
+)
+
+
+coef_df <- as.data.frame(confint(model))  # 95% CI
+coef_df$Estimate <- coef(model)
+coef_df$OR <- exp(coef_df$Estimate)
+coef_df$LowerCI <- exp(coef_df[, 1])
+coef_df$UpperCI <- exp(coef_df[, 2])
+coef_df$Variable <- label_map[rownames(coef_df)]
+coef_df= coef_df[row.names(coef_df) != "education_levelUnknown",]
+
+p = ggplot(coef_df[-1, ], aes(x = reorder(Variable, OR), y = OR)) +  # remove Intercept
+  geom_point() +
+  geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI), width = 0.2) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  coord_flip() +
+  labs(title = "Forest Plot of Logistic Regression",
+       x = "Variables",
+       y = "Odds Ratio (95% CI)") +
+  theme_minimal()
+
+#ggsave("forest_plot.pdf", p, width = 8, height = nrow(coef_df) * 0.4)
+p
+```
+
+#### Hosmer-Lemeshow Test
+
+```{r}
+hl_test <- hoslem.test(model$y, fitted(model), g = 10)
+print(hl_test)
+```
+
+p-value \> 0.05 -\> no evidence of poor fit
+
+#### ROC and AUC
+
+```{r}
+length(predict(model))
+```
+
+```{r}
+mf <- model.frame(model)
+
+roc_obj <- roc(
+  response  = mf$outcome,
+  predictor = predict(model, type = "response")
+)
+
+auc(roc_obj)
+ci.auc(roc_obj)
+```
+
+AUC between 0.7 and 0.8: acceptable ability to discriminate between classes Entire confidence interval above 0.5: model performs better than random
+
+```{r}
+plot(roc_obj, main = "ROC Curve")
+```
+
+
+
+### Alternative B - Main version, but splits high education level into Highschool and Bachelors
 
 Category: variable (Ref: value): groups...
 
@@ -1739,7 +1876,7 @@ plot(roc_obj, main = "ROC Curve")
 ```
 
 
-### Alternative B - Alternative A, but using groups from bivariate analyses
+### Alternative C - Alternative B, but using groups from bivariate analyses
 
 Category: variable (Ref: <reference>): groups...
 
@@ -1849,7 +1986,7 @@ AUC between 0.7 and 0.8: acceptable ability to discriminate between classes Enti
 plot(roc_obj, main = "ROC Curve")
 ```
 
-### Alternative C - Alternative B, but age and doses are covariates
+### Alternative D - Alternative C, but age and doses are covariates
 
 Category: variable (Ref: <reference>): groups...
 
@@ -1954,7 +2091,7 @@ AUC between 0.7 and 0.8: acceptable ability to discriminate between classes Enti
 plot(roc_obj, main = "ROC Curve")
 ```
 
-### Alternative D - Alternative C, but it includes all categories from bivariate analyses
+### Alternative E - Alternative D, but it includes all categories from bivariate analyses
 
 Category: variable (Ref: <reference>): groups...
 
@@ -2077,7 +2214,7 @@ print(hl_test)
 
 p-value \> 0.05 -\> no evidence of poor fit
 
-### Alternative E - Alternative C, but doses and are are categorical
+### Alternative F - Alternative D, but doses and are are categorical
 
 Category: variable (Ref: <reference>): groups...
 
