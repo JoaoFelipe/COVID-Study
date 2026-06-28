@@ -1,5 +1,5 @@
 title: Study Repository
-description: "COVID-19 Vaccination and In-Hospital Mortality Among Immunocompromised Older Adults: A Population-Based Study From Brazil, 2024"
+description: "COVID-19 vaccine effectiveness against in-hospital mortality in immunocompromised older adults: a Brazilian hospital surveillance study, 2024"
 remote_theme: pages-themes/slate@v0.2.0
 plugins:
 - jekyll-remote-theme
