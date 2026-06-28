@@ -1,6 +1,6 @@
 # Study Repository 
 
-This repository contains the data and statistical analyses of the study **COVID-19 vaccination and in-hospital COVID-19–related mortality among immunocompromised older adults: A population-based study from Brazil, 2024**.
+This repository contains the data and statistical analyses of the study **COVID-19 vaccine effectiveness against in-hospital mortality in immunocompromised older adults: a Brazilian hospital surveillance study, 2024**.
 
 Check the results at [analysis.html](analysis.html).
 
